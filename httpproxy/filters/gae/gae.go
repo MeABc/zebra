@@ -7,7 +7,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
-	"flag"
 	"math/rand"
 	"net"
 	"net/http"
@@ -218,7 +217,6 @@ func NewFilter(config *Config) (filters.Filter, error) {
 		DualStack:         config.Transport.Dialer.DualStack,
 		Resolver:          r,
 		SSLVerify:         config.SSLVerify,
-		LogToStderr:       flag.Lookup("logtostderr") != nil,
 		TLSConfig:         nil,
 		SiteToAlias:       helpers.NewHostMatcherWithString(config.SiteToAlias),
 		IPBlackList:       lrucache.NewLRUCache(1024),

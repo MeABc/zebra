@@ -22,7 +22,6 @@ type MultiDialer struct {
 	DualStack         bool
 	Resolver          *Resolver
 	SSLVerify         bool
-	LogToStderr       bool
 	TLSConfig         *tls.Config
 	SiteToAlias       *HostMatcher
 	GoogleTLSConfig   *tls.Config
@@ -91,13 +90,7 @@ func (d *MultiDialer) DialTLS(network, address string) (net.Conn, error) {
 }
 
 func (d *MultiDialer) DialTLS2(network, address string, cfg *tls.Config) (net.Conn, error) {
-	if d.LogToStderr {
-		SetConsoleTextColorGreen()
-	}
 	glog.V(2).Infof("MULTIDIALER DialTLS(%#v, %#v) with good_addrs=%d, bad_addrs=%d", network, address, d.TLSConnDuration.Len(), d.TLSConnError.Len())
-	if d.LogToStderr {
-		SetConsoleTextColorReset()
-	}
 
 	if cfg == nil {
 		cfg = d.TLSConfig
@@ -258,13 +251,7 @@ func (d *MultiDialer) dialMultiTLS(network string, hosts []string, port string, 
 }
 
 func (d *MultiDialer) DialQuic(network string, address string, tlsConfig *tls.Config, cfg *quic.Config) (quic.Session, error) {
-	if d.LogToStderr {
-		SetConsoleTextColorGreen()
-	}
 	glog.V(2).Infof("MULTIDIALER DialQuic(%#v) with good_addrs=%d, bad_addrs=%d", address, d.TLSConnDuration.Len(), d.TLSConnError.Len())
-	if d.LogToStderr {
-		SetConsoleTextColorReset()
-	}
 
 	if tlsConfig == nil {
 		tlsConfig = &tls.Config{
