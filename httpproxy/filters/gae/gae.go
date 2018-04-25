@@ -15,12 +15,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cloudflare/golibs/lrucache"
-	"github.com/dsnet/compress/brotli"
 	"github.com/MeABc/glog"
 	"github.com/MeABc/net/http2"
 	quic "github.com/MeABc/quic-go"
 	"github.com/MeABc/quic-go/h2quic"
+	"github.com/cloudflare/golibs/lrucache"
+	"github.com/dsnet/compress/brotli"
 
 	"../../filters"
 	"../../helpers"
@@ -300,16 +300,13 @@ func NewFilter(config *Config) (filters.Filter, error) {
 			DisableCompression: true,
 			TLSClientConfig:    md.GoogleTLSConfig,
 			QuicConfig: &quic.Config{
-				HandshakeTimeout:              md.Timeout,
-				IdleTimeout:                   md.Timeout,
+				HandshakeTimeout:            md.Timeout,
+				IdleTimeout:                 md.Timeout,
 				RequestConnectionIDOmission: true,
-				KeepAlive:                     true,
+				KeepAlive:                   true,
 			},
-			DialAddr:              md.DialQuic,
-			KeepAliveTimeout:      2 * time.Minute,
-			IdleConnTimeout:       time.Duration(config.Transport.IdleConnTimeout) * time.Second,
-			ResponseHeaderTimeout: time.Duration(config.Transport.ResponseHeaderTimeout) * time.Second,
-			GetClientKey:          GetHostnameCacheKey,
+			Dial:         md.DialQuic,
+			GetClientKey: GetHostnameCacheKey,
 		}
 	case config.DisableHTTP2 && config.ForceHTTP2:
 		glog.Fatalf("GAE: DisableHTTP2=%v and ForceHTTP2=%v is conflict!", config.DisableHTTP2, config.ForceHTTP2)
