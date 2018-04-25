@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/cloudflare/golibs/lrucache"
-	tls "github.com/google/boringssl/ssl/test/runner"
+	tls "github.com/MeABc/bogo"
 )
 
 func HTTPS(network, addr string, auth *Auth, forward Dialer, resolver Resolver) (Dialer, error) {

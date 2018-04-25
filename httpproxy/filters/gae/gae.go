@@ -17,10 +17,10 @@ import (
 
 	"github.com/cloudflare/golibs/lrucache"
 	"github.com/dsnet/compress/brotli"
-	"github.com/phuslu/glog"
-	"github.com/phuslu/net/http2"
-	quic "github.com/phuslu/quic-go"
-	"github.com/phuslu/quic-go/h2quic"
+	"github.com/MeABc/glog"
+	"github.com/MeABc/net/http2"
+	quic "github.com/MeABc/quic-go"
+	"github.com/MeABc/quic-go/h2quic"
 
 	"../../filters"
 	"../../helpers"

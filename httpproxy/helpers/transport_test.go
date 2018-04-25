@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/phuslu/net/http2"
-	"github.com/phuslu/quic-go/h2quic"
+	"github.com/MeABc/net/http2"
+	"github.com/MeABc/quic-go/h2quic"
 )
 
 func TestCloseConnections(t *testing.T) {

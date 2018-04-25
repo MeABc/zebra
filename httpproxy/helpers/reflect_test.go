@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/phuslu/quic-go/h2quic"
+	"github.com/MeABc/quic-go/h2quic"
 )
 
 func TestReflectRemoteAddrFromResponseHTTP(t *testing.T) {

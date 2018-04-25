@@ -8,7 +8,7 @@ import (
 
 	"github.com/cloudflare/golibs/lrucache"
 	"github.com/miekg/dns"
-	"github.com/phuslu/glog"
+	"github.com/MeABc/glog"
 )
 
 const (
