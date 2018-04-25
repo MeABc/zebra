@@ -302,7 +302,7 @@ func NewFilter(config *Config) (filters.Filter, error) {
 			QuicConfig: &quic.Config{
 				HandshakeTimeout:              md.Timeout,
 				IdleTimeout:                   md.Timeout,
-				RequestConnectionIDTruncation: true,
+				RequestConnectionIDOmission: true,
 				KeepAlive:                     true,
 			},
 			DialAddr:              md.DialQuic,

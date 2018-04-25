@@ -38,7 +38,7 @@ func QUIC(network, addr string, auth *Auth, forward Dialer, resolver Resolver) (
 			QuicConfig: &quic.Config{
 				HandshakeTimeout:              5 * time.Second,
 				IdleTimeout:                   10 * time.Second,
-				RequestConnectionIDTruncation: true,
+				RequestConnectionIDOmission: true,
 				KeepAlive:                     true,
 			},
 			KeepAliveTimeout:      30 * time.Minute,
