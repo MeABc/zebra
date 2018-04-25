@@ -1,0 +1,10 @@
+{
+	"Servers": [
+		{
+			"Url": "https://127.0.0.1:443/",
+			"Username": "test",
+			"Password": "123456",
+			"SSLVerify": false
+		}
+	],
+}
