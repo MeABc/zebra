@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"sync"
 )
 
 // A Dialer is a means to establish a connection.
@@ -32,7 +33,7 @@ type Auth struct {
 // FromEnvironment returns the dialer specified by the proxy related variables in
 // the environment.
 func FromEnvironment() Dialer {
-	allProxy := os.Getenv("all_proxy")
+	allProxy := allProxyEnv.Get()
 	if len(allProxy) == 0 {
 		return Direct
 	}
@@ -46,7 +47,7 @@ func FromEnvironment() Dialer {
 		return Direct
 	}
 
-	noProxy := os.Getenv("no_proxy")
+	noProxy := noProxyEnv.Get()
 	if len(noProxy) == 0 {
 		return proxy
 	}
@@ -83,7 +84,7 @@ func FromURL(u *url.URL, forward Dialer, resolver Resolver) (Dialer, error) {
 	}
 
 	switch u.Scheme {
-	case "socks5", "socks":
+	case "socks5", "socks5h", "socks":
 		return SOCKS5("tcp", u.Host, auth, forward, resolver)
 	case "socks4":
 		return SOCKS4("tcp", u.Host, false, forward, resolver)
@@ -91,10 +92,10 @@ func FromURL(u *url.URL, forward Dialer, resolver Resolver) (Dialer, error) {
 		return SOCKS4("tcp", u.Host, true, forward, resolver)
 	case "http":
 		return HTTP1("tcp", u.Host, auth, forward, resolver)
+	case "http2":
+		return HTTP2("tcp", u.Host, auth, forward, resolver)
 	case "https":
 		return HTTPS("tcp", u.Host, auth, forward, resolver)
-	case "https+h2":
-		return HTTP2("tcp", u.Host, auth, forward, resolver)
 	case "ssh", "ssh2":
 		return SSH2("tcp", u.Host, auth, forward, resolver)
 	case "quic":
@@ -110,4 +111,43 @@ func FromURL(u *url.URL, forward Dialer, resolver Resolver) (Dialer, error) {
 	}
 
 	return nil, errors.New("proxy: unknown scheme: " + u.Scheme)
+}
+
+var (
+	allProxyEnv = &envOnce{
+		names: []string{"ALL_PROXY", "all_proxy"},
+	}
+	noProxyEnv = &envOnce{
+		names: []string{"NO_PROXY", "no_proxy"},
+	}
+)
+
+// envOnce looks up an environment variable (optionally by multiple
+// names) once. It mitigates expensive lookups on some platforms
+// (e.g. Windows).
+// (Borrowed from net/http/transport.go)
+type envOnce struct {
+	names []string
+	once  sync.Once
+	val   string
+}
+
+func (e *envOnce) Get() string {
+	e.once.Do(e.init)
+	return e.val
+}
+
+func (e *envOnce) init() {
+	for _, n := range e.names {
+		e.val = os.Getenv(n)
+		if e.val != "" {
+			return
+		}
+	}
+}
+
+// reset is used by tests
+func (e *envOnce) reset() {
+	e.once = sync.Once{}
+	e.val = ""
 }

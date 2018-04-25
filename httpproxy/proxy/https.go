@@ -16,8 +16,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/MeABc/bogo"
 	"github.com/cloudflare/golibs/lrucache"
-	tls "github.com/MeABc/bogo"
 )
 
 func HTTPS(network, addr string, auth *Auth, forward Dialer, resolver Resolver) (Dialer, error) {
@@ -74,23 +74,21 @@ func (h *https) Dial(network, addr string) (net.Conn, error) {
 		}
 	}()
 
-	var config *tls.Config
+	var config *bogo.Config
 	if v, ok := h.cache.GetNotStale(h.addr); ok {
-		config = v.(*tls.Config)
+		config = v.(*bogo.Config)
 	} else {
-		config = &tls.Config{
-			MinVersion: tls.VersionTLS10,
-			MaxVersion: tls.VersionTLS13,
+		config = &bogo.Config{
+			MinVersion: bogo.VersionTLS10,
+			MaxVersion: bogo.VersionTLS13,
 			// InsecureSkipVerify: true,
 			ServerName:         h.hostname,
-			ClientSessionCache: tls.NewLRUClientSessionCache(1024),
-			MaxEarlyDataSize:   100 * 1024,
-			// Max0RTTDataSize:    100 * 1024,
+			ClientSessionCache: bogo.NewLRUClientSessionCache(1024),
 		}
 		h.cache.Set(h.addr, config, time.Now().Add(2*time.Hour))
 	}
 
-	conn1 := tls.Client(conn0, config)
+	conn1 := bogo.Client(conn0, config)
 
 	err = conn1.Handshake()
 	if err != nil {
@@ -160,7 +158,16 @@ func (h *https) Dial(network, addr string) (net.Conn, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.New("proxy: failed to read greeting from HTTP proxy at " + h.addr + ": " + resp.Status)
+		var errmsg string
+		if resp.Body != nil {
+			data := make([]byte, 1024)
+			if n, err := resp.Body.Read(data); err != nil {
+				errmsg = err.Error()
+			} else {
+				errmsg = string(data[:n])
+			}
+		}
+		return nil, errors.New("proxy: read from " + h.addr + " error: " + resp.Status + ": " + errmsg)
 	}
 
 	closeConn0 = nil
