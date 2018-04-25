@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cloudflare/golibs/lrucache"
 	"github.com/MeABc/glog"
 	quic "github.com/MeABc/quic-go"
+	"github.com/cloudflare/golibs/lrucache"
 )
 
 type MultiDialer struct {
@@ -197,7 +197,9 @@ func (d *MultiDialer) dialMultiTLS(network string, hosts []string, port string, 
 			ctx, cancel := context.WithTimeout(context.Background(), d.Timeout)
 			defer cancel()
 
-			conn, err := net.DialTCPContext(ctx, network, nil, raddr)
+			// https://github.com/golang/go/issues/9661
+			// https://stackoverflow.com/questions/4465104/socket-still-listening-after-application-crash
+			conn, err := net.DialTCPContext(ctx, network, nil, raddr, nil)
 			if err != nil {
 				d.TLSConnDuration.Del(host)
 				d.TLSConnError.Set(host, err, time.Now().Add(d.ErrorConnExpiry))
@@ -273,10 +275,10 @@ func (d *MultiDialer) DialQuic(address string, tlsConfig *tls.Config, cfg *quic.
 
 	if cfg == nil {
 		cfg = &quic.Config{
-			HandshakeTimeout:              d.Timeout,
-			IdleTimeout:                   d.Timeout,
+			HandshakeTimeout:            d.Timeout,
+			IdleTimeout:                 d.Timeout,
 			RequestConnectionIDOmission: true,
-			KeepAlive:                     true,
+			KeepAlive:                   true,
 		}
 	}
 
@@ -290,18 +292,18 @@ func (d *MultiDialer) DialQuic(address string, tlsConfig *tls.Config, cfg *quic.
 				switch {
 				case strings.HasPrefix(alias, "google_"):
 					config = &quic.Config{
-						HandshakeTimeout:              d.Timeout,
-						IdleTimeout:                   d.Timeout,
+						HandshakeTimeout:            d.Timeout,
+						IdleTimeout:                 d.Timeout,
 						RequestConnectionIDOmission: true,
-						KeepAlive:                     true,
+						KeepAlive:                   true,
 					}
 					isGoogleAddr = true
 				case cfg == nil:
 					config = &quic.Config{
-						HandshakeTimeout:              d.Timeout,
-						IdleTimeout:                   d.Timeout,
+						HandshakeTimeout:            d.Timeout,
+						IdleTimeout:                 d.Timeout,
 						RequestConnectionIDOmission: true,
-						KeepAlive:                     true,
+						KeepAlive:                   true,
 					}
 				default:
 					config = cfg
