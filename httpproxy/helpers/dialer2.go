@@ -38,6 +38,7 @@ type MultiDialer struct {
 
 func (d *MultiDialer) ClearCache() {
 	// d.DNSCache.Clear()
+	d.IPBlackList.Clear()
 	d.TLSConnDuration.Clear()
 	d.TLSConnError.Clear()
 }
@@ -71,9 +72,9 @@ func (d *MultiDialer) LookupAlias(alias string) (hosts []string, err error) {
 
 	hosts = make([]string, 0)
 	for host := range seen {
-		if _, ok := d.IPBlackList.GetQuiet(host); ok {
-			continue
-		}
+		// if _, ok := d.IPBlackList.GetQuiet(host); ok {
+		// continue
+		// }
 		hosts = append(hosts, host)
 	}
 
@@ -375,7 +376,11 @@ func (d *MultiDialer) pickupTLSHosts(hosts []string, n int) []string {
 	bads := make([]string, 0)
 
 	for _, host := range hosts {
-		if duration, ok := d.TLSConnDuration.GetNotStale(host); ok {
+		if _, ok := d.IPBlackList.GetQuiet(host); ok {
+			d.TLSConnDuration.Del(host)
+			d.TLSConnError.Del(host)
+			continue
+		} else if duration, ok := d.TLSConnDuration.GetNotStale(host); ok {
 			if d, ok := duration.(time.Duration); !ok {
 				glog.Errorf("%#v for %#v is not a time.Duration", duration, host)
 			} else {
@@ -414,6 +419,7 @@ func (d *MultiDialer) pickupTLSHosts(hosts []string, n int) []string {
 		rand.Shuffle(len(bads), func(i int, j int) {
 			bads[i], bads[j] = bads[j], bads[i]
 		})
+		d.ClearCache()
 	}
 
 	for _, hosts2 := range [][]string{unknowns, bads} {
