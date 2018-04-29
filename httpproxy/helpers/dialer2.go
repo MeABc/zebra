@@ -304,6 +304,26 @@ func (d *MultiDialer) DialQuic(network string, address string, tlsConfig *tls.Co
 				}
 				if d.SSLVerify && isGoogleAddr {
 					// TODO: fix quic-go
+					// if qc, ok := sess.(*handshake.ConnectionState); ok {
+					certs := sess.ConnectionState().PeerCertificates
+					if len(certs) <= 1 {
+						return nil, fmt.Errorf("Wrong certificate of %s: PeerCertificates=%#v", sess.RemoteAddr(), certs)
+					}
+					cert := certs[1]
+					glog.V(3).Infof("MULTIDIALER DialQuic(%#v, %#v) verify cert=%v", network, address, cert.Subject)
+					switch {
+					case d.GoogleValidator != nil && !d.GoogleValidator(cert):
+						fallthrough
+					case !strings.HasPrefix(cert.Subject.CommonName, "Google "):
+						err := fmt.Errorf("Wrong certificate of %s: Issuer=%v, SubjectKeyId=%#v", sess.RemoteAddr(), cert.Subject, cert.SubjectKeyId)
+						glog.Warningf("MultiDailer: %v", err)
+						if ip, _, err := net.SplitHostPort(sess.RemoteAddr().String()); err == nil {
+							d.IPBlackList.Set(ip, struct{}{}, time.Time{})
+						}
+						sess.Close(nil)
+						return nil, err
+					}
+					// }
 				}
 				return sess, nil
 			}
