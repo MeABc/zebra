@@ -55,6 +55,7 @@ type Config struct {
 	}
 	GoogleG2PKP string
 	GoogleG3PKP string
+	GoogleG3ECC string
 	ForceGAE    []string
 	ForceBrotli []string
 	FakeOptions map[string][]string
@@ -127,10 +128,16 @@ func NewFilter(config *Config) (filters.Filter, error) {
 		return nil, err
 	}
 
+	g3ecc, err := base64.StdEncoding.DecodeString(config.GoogleG3ECC)
+	if err != nil {
+		return nil, err
+	}
+
 	googleValidator := func(cert *x509.Certificate) bool {
 		pkp := sha256.Sum256(cert.RawSubjectPublicKeyInfo)
 		return bytes.Equal(pkp[:], g2pkp) ||
-			bytes.Equal(pkp[:], g3pkp)
+			bytes.Equal(pkp[:], g3pkp) ||
+			bytes.Equal(pkp[:], g3ecc)
 	}
 
 	googleTLSConfig := &tls.Config{

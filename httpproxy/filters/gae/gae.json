@@ -2,8 +2,7 @@
 	"AppIDs": [
 		"goagenta"
 	],
-	"CustomDomains": [
-	],
+	"CustomDomains": [],
 	"Password": "",
 	"SSLVerify": false,
 	"DisableIPv6": false,
@@ -13,7 +12,7 @@
 	"EnableQuic": false,
 	"EnableDeadProbe": true,
 	"EnableRemoteDNS": false,
-	"HostMap" : {
+	"HostMap": {
 		"google_hk": [
 			"mail.google.com",
 			"mail.l.google.com",
@@ -72,8 +71,7 @@
 		"www.google.com/patents",
 		"youtube.googleapis.com",
 	],
-	"ForceBrotli": [
-	],
+	"ForceBrotli": [],
 	"TLSConfig": {
 		"Version": "TLSv1.2",
 		"ClientSessionCacheSize": 1024,
@@ -101,6 +99,7 @@
 	},
 	"GoogleG2PKP": "7HIpactkIAq2Y49orFOOQKurWxmmSFZhBCoQYcRhJ3Y=",
 	"GoogleG3PKP": "f8NnEFZxQ4ExFOhSN7EiFWtiudZQVD2oY60uauV/n78=",
+	"GoogleG3ECC": "ekG8/PoSqjfKunOaS9iIzR3hZAJptWJKV7CgyriO+MA=",
 	"FakeOptions": {
 		"*": [
 			"Access-Control-Allow-Credentials: true",
