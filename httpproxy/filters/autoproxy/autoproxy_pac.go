@@ -55,6 +55,9 @@ func (f *Filter) ProxyPacRoundTrip(ctx context.Context, req *http.Request) (cont
 	case os.IsNotExist(err), resp.StatusCode == http.StatusNotFound:
 		glog.V(2).Infof("AUTOPROXY ProxyPac: generate %#v", filename)
 		s := fmt.Sprintf(`// User-defined FindProxyForURL
+var whiteList = new Array(
+	// "ruanyifeng.com",
+);
 function FindProxyForURL(url, host) {
     if (isPlainHostName(host) ||
         isInNet(host, "10.0.0.0", "255.0.0.0") ||
@@ -115,6 +118,9 @@ function FindProxyForURL(url, host) {
 		io.WriteString(buf, "}\n")
 
 		io.WriteString(buf, `
+for (i in whiteList) {
+	delete sites[whiteList[i]];
+}
 function FindProxyForURL(url, host) {
     if ((p = MyFindProxyForURL(url, host)) != "DIRECT") {
         return p
