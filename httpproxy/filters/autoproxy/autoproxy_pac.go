@@ -182,6 +182,7 @@ func (f *Filter) pacUpdater() {
 			}
 
 			if time.Now().Sub(modTime) < f.GFWList.Expiry {
+				glog.V(2).Infof("gfwlist has not updated. update expiry: %v", f.GFWList.Expiry)
 				continue
 			}
 		}
@@ -194,9 +195,9 @@ func (f *Filter) pacUpdater() {
 			continue
 		}
 
-		resp, err := f.Transport.RoundTrip(req)
+		resp, err := f.GFWList.Transport.RoundTrip(req)
 		if err != nil {
-			glog.Warningf("%T.RoundTrip(%#v) error: %v", f.Transport, f.GFWList.URL.String(), err.Error())
+			glog.Warningf("%T.RoundTrip(%#v) error: %v", f.GFWList.Transport, f.GFWList.URL.String(), err.Error())
 			continue
 		}
 

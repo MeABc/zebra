@@ -2,6 +2,7 @@ package autoproxy
 
 import (
 	"context"
+	"crypto/tls"
 	"io/ioutil"
 	"mime"
 	"net"
@@ -11,12 +12,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudflare/golibs/lrucache"
 	"github.com/MeABc/glog"
+	"github.com/cloudflare/golibs/lrucache"
 	"github.com/wangtuanjie/ip17mon"
 
 	"../../filters"
 	"../../helpers"
+	"../../proxy"
 	"../../storage"
 )
 
@@ -44,12 +46,17 @@ type Config struct {
 		Files      []string
 	}
 	GFWList struct {
-		Enabled  bool
-		URL      string
-		File     string
-		Encoding string
-		Expiry   int
-		Duration int
+		Enabled   bool
+		URL       string
+		File      string
+		Encoding  string
+		Expiry    int
+		Duration  int
+		DNSServer string
+		Proxy     struct {
+			Enabled bool
+			URL     string
+		}
 	}
 	MobileConfig struct {
 		Enabled bool
@@ -69,11 +76,12 @@ var (
 )
 
 type GFWList struct {
-	URL      *url.URL
-	Filename string
-	Encoding string
-	Expiry   time.Duration
-	Duration time.Duration
+	URL       *url.URL
+	Filename  string
+	Encoding  string
+	Expiry    time.Duration
+	Duration  time.Duration
+	Transport *http.Transport
 }
 
 type Filter struct {
@@ -99,7 +107,6 @@ type Filter struct {
 	RegionResolver       *helpers.Resolver
 	RegionLocator        *ip17mon.Locator
 	RegionFilterCache    lrucache.Cache
-	Transport            *http.Transport
 }
 
 func init() {
@@ -139,8 +146,6 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 		return nil, err
 	}
 
-	transport := &http.Transport{}
-
 	f := &Filter{
 		Config:               *config,
 		Store:                store,
@@ -155,9 +160,44 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 		BlackListEnabled:     config.BlackList.Enabled,
 		BlackListSiteMatcher: helpers.NewHostMatcher(config.BlackList.SiteRules),
 		GFWList:              &gfwlist,
-		Transport:            transport,
 		SiteFiltersEnabled:   config.SiteFilters.Enabled,
 		RegionFiltersEnabled: config.RegionFilters.Enabled,
+	}
+
+	r := &helpers.Resolver{}
+
+	dialer0 := &net.Dialer{
+		KeepAlive: 5 * time.Minute,
+		Timeout:   8 * time.Second,
+	}
+
+	if config.GFWList.Proxy.Enabled {
+		r.LRUCache = lrucache.NewLRUCache(32)
+		r.DNSServer = net.ParseIP(config.GFWList.DNSServer)
+		if r.DNSServer == nil {
+			glog.Fatalf("net.ParseIP(%+v) failed: %s", config.GFWList.DNSServer, err)
+		}
+		r.DNSExpiry = time.Duration(config.GFWList.Duration*2) * time.Second
+
+		fixedURL, err := url.Parse(config.GFWList.Proxy.URL)
+		if err != nil {
+			glog.Fatalf("url.Parse(%#v) error: %s", config.GFWList.Proxy.URL, err)
+		}
+
+		dialer, err := proxy.FromURL(fixedURL, dialer0, r)
+		if err != nil {
+			glog.Fatalf("proxy.FromURL(%#v) error: %s", fixedURL.String(), err)
+		}
+
+		f.GFWList.Transport = &http.Transport{
+			Dial:            dialer.Dial,
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+	} else {
+		f.GFWList.Transport = &http.Transport{
+			Dial:            dialer0.Dial,
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
 	}
 
 	for _, name := range f.IndexFiles {

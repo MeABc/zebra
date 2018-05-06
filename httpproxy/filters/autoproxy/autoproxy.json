@@ -24,7 +24,7 @@
 			"局域网": "direct",
 			"保留地址": "direct",
 		},
-                "IPRules": {
+		"IPRules": {
 			"108.160.166.92": "",
 			"110.249.209.42": "",
 			"118.5.49.6": "",
@@ -99,7 +99,7 @@
 			"8.7.198.45": "",
 			"92.242.144.2": "",
 			"93.46.8.89": "",
-                },
+		},
 	},
 	"IndexFiles": {
 		"Enabled": true,
@@ -118,6 +118,11 @@
 		"Encoding": "base64",
 		"Expiry": 86400,
 		"Duration": 3600,
+		"DNSServer": "114.114.114.114",
+		"Proxy": {
+			"Enabled": false,
+			"URL": "socks5://127.0.0.1:1080",
+		},
 	},
 	"MobileConfig": {
 		"Enabled": true,
