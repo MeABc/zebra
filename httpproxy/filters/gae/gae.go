@@ -236,7 +236,7 @@ func NewFilter(config *Config) (filters.Filter, error) {
 	if config.EnableRemoteDNS {
 		r.DNSServer = net.ParseIP(config.DNSServers[0])
 		if r.DNSServer == nil {
-			glog.Fatalf("net.ParseIP(%+v) failed: %s", config.DNSServers[0], err)
+			glog.Fatalf("net.ParseIP(%+v) failed", config.DNSServers[0])
 		}
 	}
 

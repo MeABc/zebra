@@ -228,7 +228,7 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 		if config.GFWList.EnableRemoteDNS {
 			d1.Resolver.DNSServer = net.ParseIP(config.GFWList.DNSServer)
 			if d1.Resolver.DNSServer == nil {
-				glog.Fatalf("net.ParseIP(%+v) failed: %s", config.GFWList.DNSServer, err)
+				glog.Fatalf("net.ParseIP(%+v) failed", config.GFWList.DNSServer)
 			}
 		}
 		d1.Resolver.DNSExpiry = time.Duration(config.GFWList.Duration*2) * time.Second
@@ -266,7 +266,7 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 		if config.CNIPList.EnableRemoteDNS {
 			d2.Resolver.DNSServer = net.ParseIP(config.CNIPList.DNSServer)
 			if d2.Resolver.DNSServer == nil {
-				glog.Fatalf("net.ParseIP(%+v) failed: %s", config.CNIPList.DNSServer, err)
+				glog.Fatalf("net.ParseIP(%+v) failed", config.CNIPList.DNSServer)
 			}
 		}
 		d2.Resolver.DNSExpiry = time.Duration(config.CNIPList.Duration*2) * time.Second

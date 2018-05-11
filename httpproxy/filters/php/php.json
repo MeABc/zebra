@@ -1,12 +1,10 @@
 {
-	"Servers": [
-		{
-			"URL": "https://example.com/",
-			"Password": "123456",
-			"SSLVerify": false,
-			"Host": "",
-		}
-	],
+	"Servers": [{
+		"URL": "https://example.com/",
+		"Password": "123456",
+		"SSLVerify": false,
+		"Host": "",
+	}],
 	"Transport": {
 		"Dialer": {
 			"Timeout": 10,
@@ -19,6 +17,8 @@
 			"Enabled": false,
 			"URL": "http://127.0.0.1:8087",
 		},
+		"EnableRemoteDNS": false,
+		"DNSServer": "114.114.114.114",
 		"DisableKeepAlives": false,
 		"DisableCompression": false,
 		"TLSHandshakeTimeout": 4,

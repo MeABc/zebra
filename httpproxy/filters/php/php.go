@@ -8,9 +8,9 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/cloudflare/golibs/lrucache"
 	"github.com/MeABc/glog"
 	"github.com/MeABc/net/http2"
+	"github.com/cloudflare/golibs/lrucache"
 
 	"../../filters"
 	"../../helpers"
@@ -41,6 +41,8 @@ type Config struct {
 			Enabled bool
 			URL     string
 		}
+		EnableRemoteDNS     bool
+		DNSServer           string
 		DisableKeepAlives   bool
 		DisableCompression  bool
 		TLSHandshakeTimeout int
@@ -96,6 +98,13 @@ func NewFilter(config *Config) (filters.Filter, error) {
 			DNSExpiry: time.Duration(config.Transport.Dialer.DNSCacheExpiry) * time.Second,
 		},
 		Level: 2,
+	}
+
+	if config.Transport.EnableRemoteDNS {
+		d.Resolver.DNSServer = net.ParseIP(config.Transport.DNSServer)
+		if d.Resolver.DNSServer == nil {
+			glog.Fatalf("net.ParseIP(%+v) failed", config.Transport.DNSServer)
+		}
 	}
 
 	for _, server := range servers {
