@@ -9,8 +9,8 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/cloudflare/golibs/lrucache"
 	"github.com/MeABc/glog"
+	"github.com/cloudflare/golibs/lrucache"
 
 	"../../filters"
 	"../../helpers"
@@ -39,6 +39,8 @@ type Config struct {
 			InsecureSkipVerify     bool
 			ClientSessionCacheSize int
 		}
+		EnableRemoteDNS     bool
+		DNSServer           string
 		DisableKeepAlives   bool
 		DisableCompression  bool
 		TLSHandshakeTimeout int
@@ -76,6 +78,12 @@ func NewFilter(config *Config) (filters.Filter, error) {
 			DNSExpiry: time.Duration(config.Transport.Dialer.DNSCacheExpiry) * time.Second,
 			BlackList: lrucache.NewLRUCache(1024),
 		},
+	}
+	if config.Transport.EnableRemoteDNS {
+		d.Resolver.DNSServer = net.ParseIP(config.Transport.DNSServer)
+		if d.Resolver.DNSServer == nil {
+			glog.Fatalf("net.ParseIP(%+v) failed", config.Transport.DNSServer)
+		}
 	}
 
 	if ips, err := helpers.LocalIPv4s(); err == nil {

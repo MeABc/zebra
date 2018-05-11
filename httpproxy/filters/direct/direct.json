@@ -15,6 +15,8 @@
 			"InsecureSkipVerify": false,
 			"ClientSessionCacheSize": 1000
 		},
+		"EnableRemoteDNS": false,
+		"DNSServer": "114.114.114.114",
 		"DisableKeepAlives": false,
 		"DisableCompression": false,
 		"TLSHandshakeTimeout": 8,
