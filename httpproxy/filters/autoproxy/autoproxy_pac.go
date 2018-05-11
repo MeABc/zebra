@@ -158,6 +158,7 @@ func (f *Filter) pacUpdater() {
 	// glog.V(2).Infof("start updater for %+v, expiry=%s, duration=%s", f.GFWList.URL.String(), f.GFWList.Expiry, f.GFWList.Duration)
 
 	ticker := time.Tick(f.GFWList.Duration)
+	var r io.Reader
 
 	for {
 		select {
@@ -201,18 +202,18 @@ func (f *Filter) pacUpdater() {
 			continue
 		}
 
-		var r io.Reader = resp.Body
+		r = resp.Body
 		switch f.GFWList.Encoding {
 		case "base64":
 			r = base64.NewDecoder(base64.StdEncoding, r)
 		default:
 			break
 		}
+		resp.Body.Close()
 
 		data, err := ioutil.ReadAll(r)
 		if err != nil {
 			glog.Warningf("ioutil.ReadAll(%T) error: %v", r, err)
-			resp.Body.Close()
 			continue
 		}
 
@@ -231,7 +232,6 @@ func (f *Filter) pacUpdater() {
 		f.ProxyPacCache.Clear()
 
 		glog.Infof("Update %#v from %#v OK", f.GFWList.Filename, f.GFWList.URL.String())
-		resp.Body.Close()
 	}
 }
 

@@ -31,6 +31,19 @@ type Config struct {
 		Enabled bool
 		Rules   map[string]string
 	}
+	CNIPList struct {
+		Enabled   bool
+		Rule      string
+		URL       string
+		File      string
+		Expiry    int
+		Duration  int
+		DNSServer string
+		Proxy     struct {
+			Enabled bool
+			URL     string
+		}
+	}
 	RegionFilters struct {
 		Enabled         bool
 		DataFile        string
@@ -72,13 +85,22 @@ type Config struct {
 }
 
 var (
-	onceUpdater sync.Once
+	pacOnceUpdater      sync.Once
+	cniplistOnceUpdater sync.Once
 )
 
 type GFWList struct {
 	URL       *url.URL
 	Filename  string
 	Encoding  string
+	Expiry    time.Duration
+	Duration  time.Duration
+	Transport *http.Transport
+}
+
+type CNIPList struct {
+	URL       *url.URL
+	Filename  string
 	Expiry    time.Duration
 	Duration  time.Duration
 	Transport *http.Transport
@@ -93,7 +115,13 @@ type Filter struct {
 	IndexFilesSet        map[string]struct{}
 	ProxyPacCache        lrucache.Cache
 	GFWListEnabled       bool
+	CNIPListEnabled      bool
 	GFWList              *GFWList
+	CNIPList             *CNIPList
+	CNIPListRule         filters.RoundTripFilter
+	CNIPListIPNets       []*net.IPNet
+	CNIPListResolver     *helpers.Resolver
+	CNIPListCache        lrucache.Cache
 	MobileConfigEnabled  bool
 	IPHTMLEnabled        bool
 	IPHTMLWhiteList      *helpers.HostMatcher
@@ -127,6 +155,7 @@ func init() {
 
 func NewFilter(config *Config) (_ filters.Filter, err error) {
 	var gfwlist GFWList
+	var cniplist CNIPList
 
 	gfwlist.Encoding = config.GFWList.Encoding
 	gfwlist.Filename = config.GFWList.File
@@ -146,6 +175,18 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 		return nil, err
 	}
 
+	cniplist.Filename = config.CNIPList.File
+	cniplist.Expiry = time.Duration(config.CNIPList.Expiry) * time.Second
+	cniplist.Duration = time.Duration(config.CNIPList.Duration) * time.Second
+	cniplist.URL, err = url.Parse(config.CNIPList.URL)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := store.Head(cniplist.Filename); err != nil {
+		return nil, err
+	}
+
 	f := &Filter{
 		Config:               *config,
 		Store:                store,
@@ -155,49 +196,123 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 		IndexFilesSet:        make(map[string]struct{}),
 		ProxyPacCache:        lrucache.NewLRUCache(32),
 		GFWListEnabled:       config.GFWList.Enabled,
+		CNIPListEnabled:      config.CNIPList.Enabled,
 		MobileConfigEnabled:  config.MobileConfig.Enabled,
 		IPHTMLEnabled:        config.IPHTML.Enabled,
 		BlackListEnabled:     config.BlackList.Enabled,
 		BlackListSiteMatcher: helpers.NewHostMatcher(config.BlackList.SiteRules),
 		GFWList:              &gfwlist,
+		CNIPList:             &cniplist,
 		SiteFiltersEnabled:   config.SiteFilters.Enabled,
 		RegionFiltersEnabled: config.RegionFilters.Enabled,
 	}
 
-	r := &helpers.Resolver{}
-
-	dialer0 := &net.Dialer{
-		KeepAlive: 5 * time.Minute,
+	d0 := &net.Dialer{
+		KeepAlive: 30 * time.Second,
 		Timeout:   8 * time.Second,
+		// DualStack: true,
 	}
 
-	if config.GFWList.Proxy.Enabled {
-		r.LRUCache = lrucache.NewLRUCache(32)
-		r.DNSServer = net.ParseIP(config.GFWList.DNSServer)
-		if r.DNSServer == nil {
+	d := &helpers.Dialer{
+		Dialer: d0,
+		Resolver: &helpers.Resolver{
+			LRUCache: lrucache.NewLRUCache(32),
+		},
+		Level: 1,
+	}
+
+	if f.GFWListEnabled {
+		d1 := d
+		d1.Resolver.DNSServer = net.ParseIP(config.GFWList.DNSServer)
+		if d1.Resolver.DNSServer == nil {
 			glog.Fatalf("net.ParseIP(%+v) failed: %s", config.GFWList.DNSServer, err)
 		}
-		r.DNSExpiry = time.Duration(config.GFWList.Duration*2) * time.Second
-
-		fixedURL, err := url.Parse(config.GFWList.Proxy.URL)
-		if err != nil {
-			glog.Fatalf("url.Parse(%#v) error: %s", config.GFWList.Proxy.URL, err)
-		}
-
-		dialer, err := proxy.FromURL(fixedURL, dialer0, r)
-		if err != nil {
-			glog.Fatalf("proxy.FromURL(%#v) error: %s", fixedURL.String(), err)
-		}
+		d1.Resolver.DNSExpiry = time.Duration(config.GFWList.Duration*2) * time.Second
 
 		f.GFWList.Transport = &http.Transport{
-			Dial:            dialer.Dial,
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			Dial: d1.Dial,
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: false,
+				ClientSessionCache: tls.NewLRUClientSessionCache(1000),
+			},
+			TLSHandshakeTimeout: 4 * time.Second,
 		}
-	} else {
-		f.GFWList.Transport = &http.Transport{
-			Dial:            dialer0.Dial,
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+
+		if config.GFWList.Proxy.Enabled {
+			fixedURL1, err := url.Parse(config.GFWList.Proxy.URL)
+			if err != nil {
+				glog.Fatalf("url.Parse(%#v) error: %s", config.GFWList.Proxy.URL, err)
+			}
+
+			dialer1, err := proxy.FromURL(fixedURL1, d1, nil)
+			if err != nil {
+				glog.Fatalf("proxy.FromURL(%#v) error: %s", fixedURL1.String(), err)
+			}
+
+			f.GFWList.Transport.Dial = dialer1.Dial
+			f.GFWList.Transport.DialTLS = nil
+			f.GFWList.Transport.Proxy = nil
 		}
+
+		go pacOnceUpdater.Do(f.pacUpdater)
+	}
+
+	if f.CNIPListEnabled {
+		d2 := d
+		d2.Resolver.DNSServer = net.ParseIP(config.CNIPList.DNSServer)
+		if d2.Resolver.DNSServer == nil {
+			glog.Fatalf("net.ParseIP(%+v) failed: %s", config.CNIPList.DNSServer, err)
+		}
+		d2.Resolver.DNSExpiry = time.Duration(config.CNIPList.Duration*2) * time.Second
+		f.CNIPListResolver = d2.Resolver
+		f.CNIPListResolver.LRUCache = lrucache.NewLRUCache(1000)
+
+		f.CNIPList.Transport = &http.Transport{
+			Dial: d2.Dial,
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: false,
+				ClientSessionCache: tls.NewLRUClientSessionCache(1000),
+			},
+			TLSHandshakeTimeout: 4 * time.Second,
+		}
+
+		if config.CNIPList.Proxy.Enabled {
+			fixedURL2, err := url.Parse(config.CNIPList.Proxy.URL)
+			if err != nil {
+				glog.Fatalf("url.Parse(%#v) error: %s", config.CNIPList.Proxy.URL, err)
+			}
+
+			dialer2, err := proxy.FromURL(fixedURL2, d2, nil)
+			if err != nil {
+				glog.Fatalf("proxy.FromURL(%#v) error: %s", fixedURL2.String(), err)
+			}
+
+			f.CNIPList.Transport.Dial = dialer2.Dial
+			f.CNIPList.Transport.DialTLS = nil
+			f.CNIPList.Transport.Proxy = nil
+		}
+
+		f.CNIPListIPNets, err = f.legallyParseIPNetList(f.CNIPList.Filename)
+		if err != nil {
+			glog.Fatalf("AUTOPROXY: legallyParseIPNetList error: %v", err)
+		}
+
+		name := config.CNIPList.Rule
+		if name == "" {
+			name = "direct"
+		}
+		f0, err := filters.GetFilter(name)
+		if err != nil {
+			glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) for CNIPList.Rule error: %v", name, err)
+		}
+		f1, ok := f0.(filters.RoundTripFilter)
+		if !ok {
+			glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) return %T, not a RoundTripFilter", name, f0)
+		}
+		f.CNIPListRule = f1
+		f.CNIPListCache = lrucache.NewLRUCache(4096)
+
+		go cniplistOnceUpdater.Do(f.cniplistUpdater)
 	}
 
 	for _, name := range f.IndexFiles {
@@ -211,14 +326,14 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 	if f.SiteFiltersEnabled {
 		fm := make(map[string]interface{})
 		for host, name := range config.SiteFilters.Rules {
-			f, err := filters.GetFilter(name)
+			f0, err := filters.GetFilter(name)
 			if err != nil {
 				glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) for %#v error: %v", name, host, err)
 			}
-			if _, ok := f.(filters.RoundTripFilter); !ok {
-				glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) return %T, not a RoundTripFilter", name, f)
+			if _, ok := f0.(filters.RoundTripFilter); !ok {
+				glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) return %T, not a RoundTripFilter", name, f0)
 			}
-			fm[host] = f
+			fm[host] = f0
 		}
 		f.SiteFiltersRules = helpers.NewHostMatcherWithValue(fm)
 	}
@@ -250,13 +365,13 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 			if name == "" {
 				continue
 			}
-			f, err := filters.GetFilter(name)
+			f0, err := filters.GetFilter(name)
 			if err != nil {
 				glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) for %#v error: %v", name, region, err)
 			}
-			f1, ok := f.(filters.RoundTripFilter)
+			f1, ok := f0.(filters.RoundTripFilter)
 			if !ok {
-				glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) return %T, not a RoundTripFilter", name, f)
+				glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) return %T, not a RoundTripFilter", name, f0)
 			}
 			fm[strings.ToLower(region)] = f1
 		}
@@ -268,23 +383,19 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 				fm[ip] = nil
 				continue
 			}
-			f, err := filters.GetFilter(name)
+			f0, err := filters.GetFilter(name)
 			if err != nil {
 				glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) for %#v error: %v", name, ip, err)
 			}
-			f1, ok := f.(filters.RoundTripFilter)
+			f1, ok := f0.(filters.RoundTripFilter)
 			if !ok {
-				glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) return %T, not a RoundTripFilter", name, f)
+				glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) return %T, not a RoundTripFilter", name, f0)
 			}
 			fm[ip] = f1
 		}
 		f.RegionFiltersIPRules = fm
 
 		f.RegionFilterCache = lrucache.NewLRUCache(uint(f.Config.RegionFilters.DNSCacheSize))
-	}
-
-	if f.GFWListEnabled {
-		go onceUpdater.Do(f.pacUpdater)
 	}
 
 	return f, nil
@@ -331,6 +442,25 @@ func (f *Filter) Request(ctx context.Context, req *http.Request) (context.Contex
 			glog.V(2).Infof("%s \"AUTOPROXY SiteFilters %s %s %s\" with %T", req.RemoteAddr, req.Method, req.URL.String(), req.Proto, f1)
 			filters.SetRoundTripFilter(ctx, f1.(filters.RoundTripFilter))
 			return ctx, req, nil
+		}
+	}
+
+	if f.CNIPListEnabled {
+		if f1, ok := f.CNIPListCache.Get(host); ok {
+			if f1 != nil {
+				glog.V(2).Infof("%s \"AUTOPROXY CNIPList %s %s %s\" with %T", req.RemoteAddr, req.Method, req.URL.String(), req.Proto, f1)
+				filters.SetRoundTripFilter(ctx, f1.(filters.RoundTripFilter))
+				return ctx, req, nil
+			}
+		} else if ips, err := f.CNIPListResolver.LookupIP(host); err == nil && len(ips) > 0 {
+			ip := ips[0]
+			if ipInIPNetList(ip, f.CNIPListIPNets) {
+				rule := f.CNIPListRule
+				glog.V(2).Infof("%s \"AUTOPROXY CNIPList %s %s %s\" with %T", req.RemoteAddr, req.Method, req.URL.String(), req.Proto, rule)
+				f.CNIPListCache.Set(host, rule, time.Now().Add(time.Hour))
+				filters.SetRoundTripFilter(ctx, rule)
+				return ctx, req, nil
+			}
 		}
 	}
 
@@ -382,6 +512,10 @@ func (f *Filter) RoundTrip(ctx context.Context, req *http.Request) (context.Cont
 	switch {
 	case f.SiteFiltersEnabled && req.URL.Scheme == "https":
 		if f1, ok := f.SiteFiltersRules.Lookup(helpers.GetHostName(req)); ok && f1 != nil {
+			return f1.(filters.RoundTripFilter).RoundTrip(ctx, req)
+		}
+	case f.CNIPListEnabled && req.URL.Scheme == "https":
+		if f1, ok := f.CNIPListCache.Get(helpers.GetHostName(req)); ok && f1 != nil {
 			return f1.(filters.RoundTripFilter).RoundTrip(ctx, req)
 		}
 	case f.RegionFiltersEnabled && req.URL.Scheme == "https":
