@@ -32,14 +32,15 @@ type Config struct {
 		Rules   map[string]string
 	}
 	CNIPList struct {
-		Enabled   bool
-		Rule      string
-		URL       string
-		File      string
-		Expiry    int
-		Duration  int
-		DNSServer string
-		Proxy     struct {
+		Enabled         bool
+		Rule            string
+		URL             string
+		File            string
+		Expiry          int
+		Duration        int
+		EnableRemoteDNS bool
+		DNSServer       string
+		Proxy           struct {
 			Enabled bool
 			URL     string
 		}
@@ -59,14 +60,15 @@ type Config struct {
 		Files      []string
 	}
 	GFWList struct {
-		Enabled   bool
-		URL       string
-		File      string
-		Encoding  string
-		Expiry    int
-		Duration  int
-		DNSServer string
-		Proxy     struct {
+		Enabled         bool
+		URL             string
+		File            string
+		Encoding        string
+		Expiry          int
+		Duration        int
+		EnableRemoteDNS bool
+		DNSServer       string
+		Proxy           struct {
 			Enabled bool
 			URL     string
 		}
@@ -223,9 +225,11 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 
 	if f.GFWListEnabled {
 		d1 := d
-		d1.Resolver.DNSServer = net.ParseIP(config.GFWList.DNSServer)
-		if d1.Resolver.DNSServer == nil {
-			glog.Fatalf("net.ParseIP(%+v) failed: %s", config.GFWList.DNSServer, err)
+		if config.GFWList.EnableRemoteDNS {
+			d1.Resolver.DNSServer = net.ParseIP(config.GFWList.DNSServer)
+			if d1.Resolver.DNSServer == nil {
+				glog.Fatalf("net.ParseIP(%+v) failed: %s", config.GFWList.DNSServer, err)
+			}
 		}
 		d1.Resolver.DNSExpiry = time.Duration(config.GFWList.Duration*2) * time.Second
 
@@ -259,9 +263,11 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 
 	if f.CNIPListEnabled {
 		d2 := d
-		d2.Resolver.DNSServer = net.ParseIP(config.CNIPList.DNSServer)
-		if d2.Resolver.DNSServer == nil {
-			glog.Fatalf("net.ParseIP(%+v) failed: %s", config.CNIPList.DNSServer, err)
+		if config.CNIPList.EnableRemoteDNS {
+			d2.Resolver.DNSServer = net.ParseIP(config.CNIPList.DNSServer)
+			if d2.Resolver.DNSServer == nil {
+				glog.Fatalf("net.ParseIP(%+v) failed: %s", config.CNIPList.DNSServer, err)
+			}
 		}
 		d2.Resolver.DNSExpiry = time.Duration(config.CNIPList.Duration*2) * time.Second
 		f.CNIPListResolver = d2.Resolver

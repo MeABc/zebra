@@ -19,6 +19,7 @@
 		"File": "china_ip_list.txt",
 		"Expiry": 86400,
 		"Duration": 3600,
+		"EnableRemoteDNS": false,
 		"DNSServer": "114.114.114.114",
 		"Proxy": {
 			"Enabled": false,
@@ -131,6 +132,7 @@
 		"Encoding": "base64",
 		"Expiry": 86400,
 		"Duration": 3600,
+		"EnableRemoteDNS": false,
 		"DNSServer": "114.114.114.114",
 		"Proxy": {
 			"Enabled": false,

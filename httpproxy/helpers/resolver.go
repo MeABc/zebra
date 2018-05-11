@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/MeABc/glog"
 	"github.com/cloudflare/golibs/lrucache"
 	"github.com/miekg/dns"
-	"github.com/MeABc/glog"
 )
 
 const (
