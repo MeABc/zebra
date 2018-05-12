@@ -234,9 +234,10 @@ func NewFilter(config *Config) (filters.Filter, error) {
 	}
 
 	if config.EnableRemoteDNS {
-		r.DNSServer = net.ParseIP(config.DNSServers[0])
-		if r.DNSServer == nil {
-			glog.Fatalf("net.ParseIP(%+v) failed", config.DNSServers[0])
+		r.DNSServer = config.DNSServers[0]
+		_, _, _, err := helpers.ParseIPPort(config.DNSServers[0])
+		if err != nil {
+			glog.Fatalf("GAE: helpers.ParseIPPort(%v) failed", config.DNSServers[0])
 		}
 	}
 

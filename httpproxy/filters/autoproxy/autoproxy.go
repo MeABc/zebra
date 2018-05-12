@@ -226,9 +226,10 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 	if f.GFWListEnabled {
 		d1 := d
 		if config.GFWList.EnableRemoteDNS {
-			d1.Resolver.DNSServer = net.ParseIP(config.GFWList.DNSServer)
-			if d1.Resolver.DNSServer == nil {
-				glog.Fatalf("net.ParseIP(%+v) failed", config.GFWList.DNSServer)
+			d1.Resolver.DNSServer = config.GFWList.DNSServer
+			_, _, _, err := helpers.ParseIPPort(config.GFWList.DNSServer)
+			if err != nil {
+				glog.Fatalf("AUTOPROXY: helpers.ParseIPPort(%v) failed", config.GFWList.DNSServer)
 			}
 		}
 		d1.Resolver.DNSExpiry = time.Duration(config.GFWList.Duration*2) * time.Second
@@ -264,9 +265,10 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 	if f.CNIPListEnabled {
 		d2 := d
 		if config.CNIPList.EnableRemoteDNS {
-			d2.Resolver.DNSServer = net.ParseIP(config.CNIPList.DNSServer)
-			if d2.Resolver.DNSServer == nil {
-				glog.Fatalf("net.ParseIP(%+v) failed", config.CNIPList.DNSServer)
+			d2.Resolver.DNSServer = config.CNIPList.DNSServer
+			_, _, _, err := helpers.ParseIPPort(config.CNIPList.DNSServer)
+			if err != nil {
+				glog.Fatalf("AUTOPROXY: helpers.ParseIPPort(%v) failed", config.CNIPList.DNSServer)
 			}
 		}
 		d2.Resolver.DNSExpiry = time.Duration(config.CNIPList.Duration*2) * time.Second
@@ -360,9 +362,10 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 
 		f.RegionResolver = &helpers.Resolver{}
 		if config.RegionFilters.EnableRemoteDNS {
-			f.RegionResolver.DNSServer = net.ParseIP(config.RegionFilters.DNSServer)
-			if f.RegionResolver.DNSServer == nil {
-				glog.Fatalf("AUTOPROXY: net.ParseIP(%+v) failed", config.RegionFilters.DNSServer)
+			f.RegionResolver.DNSServer = config.RegionFilters.DNSServer
+			_, _, _, err := helpers.ParseIPPort(config.RegionFilters.DNSServer)
+			if err != nil {
+				glog.Fatalf("AUTOPROXY: helpers.ParseIPPort(%v) failed", config.RegionFilters.DNSServer)
 			}
 		}
 

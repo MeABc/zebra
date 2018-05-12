@@ -1,8 +1,10 @@
 package helpers
 
 import (
+	"errors"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 
@@ -18,10 +20,11 @@ const (
 type Resolver struct {
 	LRUCache    lrucache.Cache
 	BlackList   lrucache.Cache
-	DNSServer   net.IP
+	DNSServer   string
 	DNSExpiry   time.Duration
 	DisableIPv6 bool
 	ForceIPv6   bool
+	network     string // name of the network (for example, "tcp", "udp")
 }
 
 func (r *Resolver) LookupHost(name string) ([]string, error) {
@@ -57,7 +60,7 @@ func (r *Resolver) LookupIP(name string) ([]net.IP, error) {
 	}
 
 	lookupIP := r.lookupIP1
-	if r.DNSServer != nil {
+	if r.DNSServer != "" {
 		lookupIP = r.lookupIP2
 	}
 
@@ -123,20 +126,27 @@ func (r *Resolver) lookupIP2(name string) ([]net.IP, error) {
 		m.SetQuestion(dns.Fqdn(name), dns.TypeA)
 	}
 
-	reply, _, err := c.Exchange(m, net.JoinHostPort(r.DNSServer.String(), "53"))
+	ip0, port0, _, err := ParseIPPort(r.DNSServer)
+	if err != nil {
+		return nil, err
+	}
+	if port0 == "" {
+		port0 = "53"
+	}
+
+	reply, _, err := c.Exchange(m, net.JoinHostPort(ip0.String(), "53"))
 	if err != nil {
 		return nil, err
 	}
 
 	if len(reply.Answer) < 1 {
-		return nil, fmt.Errorf("no Answer from dns server %+v", r.DNSServer.String())
+		return nil, fmt.Errorf("no Answer from dns server %v", r.DNSServer)
 	}
 
 	ips := make([]net.IP, 0, 4)
+	var ip net.IP
 
 	for _, rr := range reply.Answer {
-		var ip net.IP
-
 		switch rr.(type) {
 		case *dns.AAAA:
 			ip = rr.(*dns.AAAA).AAAA
@@ -149,4 +159,33 @@ func (r *Resolver) lookupIP2(name string) ([]net.IP, error) {
 	}
 
 	return ips, nil
+}
+
+// https://rosettacode.org/wiki/Parse_an_IP_Address#Go
+func ParseIPPort(s string) (ip net.IP, port, space string, err error) {
+	ip = net.ParseIP(s)
+	if ip == nil {
+		var host string
+		host, port, err = net.SplitHostPort(s)
+		if err != nil {
+			return
+		}
+		if port != "" {
+			// This check only makes sense if service names are not allowed
+			if _, err = strconv.ParseUint(port, 10, 16); err != nil {
+				return
+			}
+		}
+		ip = net.ParseIP(host)
+	}
+	if ip == nil {
+		err = errors.New("invalid address format")
+	} else {
+		space = "IPv6"
+		if ip4 := ip.To4(); ip4 != nil {
+			space = "IPv4"
+			ip = ip4
+		}
+	}
+	return
 }
