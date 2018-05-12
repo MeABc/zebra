@@ -24,7 +24,7 @@ type Resolver struct {
 	DNSExpiry   time.Duration
 	DisableIPv6 bool
 	ForceIPv6   bool
-	network     string // name of the network (for example, "tcp", "udp")
+	Network     string // name of the network (for example, "tcp", "udp")
 }
 
 func (r *Resolver) LookupHost(name string) ([]string, error) {
@@ -134,7 +134,7 @@ func (r *Resolver) lookupIP2(name string) ([]net.IP, error) {
 		port0 = "53"
 	}
 
-	reply, _, err := c.Exchange(m, net.JoinHostPort(ip0.String(), "53"))
+	reply, _, err := c.Exchange(m, net.JoinHostPort(ip0.String(), port0))
 	if err != nil {
 		return nil, err
 	}
