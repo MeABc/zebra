@@ -109,6 +109,9 @@ func (r *Resolver) lookupIP1(name string) ([]net.IP, error) {
 }
 
 func (r *Resolver) lookupIP2(name string) ([]net.IP, error) {
+	c := &dns.Client{
+		Timeout: 5 * time.Second,
+	}
 	m := &dns.Msg{}
 
 	switch {
@@ -120,7 +123,7 @@ func (r *Resolver) lookupIP2(name string) ([]net.IP, error) {
 		m.SetQuestion(dns.Fqdn(name), dns.TypeA)
 	}
 
-	reply, err := dns.Exchange(m, net.JoinHostPort(r.DNSServer.String(), "53"))
+	reply, _, err := c.Exchange(m, net.JoinHostPort(r.DNSServer.String(), "53"))
 	if err != nil {
 		return nil, err
 	}
