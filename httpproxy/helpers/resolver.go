@@ -15,6 +15,7 @@ import (
 
 const (
 	DefaultDNSCacheExpiry time.Duration = 600 * time.Second
+	DefaultDNSDialTimeout time.Duration = 5 * time.Second
 )
 
 type Resolver struct {
@@ -24,7 +25,9 @@ type Resolver struct {
 	DNSExpiry   time.Duration
 	DisableIPv6 bool
 	ForceIPv6   bool
-	Network     string // name of the network (for example, "tcp", "udp")
+	Network     string // name of the network ("tcp", "tcp-tls", "udp")
+	EDNSEnabled bool   // TODO : EDNS0 support
+	ExternalIP  string // TODO : EDNS0 ?
 }
 
 func (r *Resolver) LookupHost(name string) ([]string, error) {
@@ -113,7 +116,17 @@ func (r *Resolver) lookupIP1(name string) ([]net.IP, error) {
 
 func (r *Resolver) lookupIP2(name string) ([]net.IP, error) {
 	c := &dns.Client{
-		Timeout: 5 * time.Second,
+		Timeout: DefaultDNSDialTimeout,
+	}
+	switch r.Network {
+	case "udp", "":
+		c.Net = "udp"
+	case "tcp":
+		c.Net = "tcp"
+	case "tcp-tls":
+		c.Net = "tcp-tls"
+	default:
+		c.Net = "udp"
 	}
 	m := &dns.Msg{}
 
