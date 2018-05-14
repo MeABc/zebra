@@ -12,6 +12,20 @@
 			"www.slideshare.net": "php",
 		},
 	},
+	"CNDomainList": {
+		"Enabled": false,
+		"Rule": "direct",
+		"URL": "https://raw.githubusercontent.com/felixonmars/dnsmasq-china-list/master/accelerated-domains.china.conf",
+		"File": "china_domain_list.txt",
+		"Expiry": 86400,
+		"Duration": 3600,
+		"EnableRemoteDNS": true,
+		"DNSServer": "114.114.114.114",
+		"Proxy": {
+			"Enabled": false,
+			"URL": "socks5://127.0.0.1:1080",
+		},
+	},
 	"CNIPList": {
 		"Enabled": false,
 		"Rule": "direct",
