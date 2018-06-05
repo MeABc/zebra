@@ -11,6 +11,7 @@ import (
 	"github.com/MeABc/glog"
 	"github.com/cloudflare/golibs/lrucache"
 	"github.com/miekg/dns"
+	"golang.org/x/sync/singleflight"
 )
 
 const (
@@ -19,15 +20,16 @@ const (
 )
 
 type Resolver struct {
-	LRUCache    lrucache.Cache
-	BlackList   lrucache.Cache
-	DNSServer   string
-	DNSExpiry   time.Duration
-	DisableIPv6 bool
-	ForceIPv6   bool
-	Network     string // name of the network ("tcp", "tcp-tls", "udp")
-	EDNSEnabled bool   // TODO : EDNS0 support
-	ExternalIP  string // TODO : EDNS0 ?
+	Singleflight *singleflight.Group
+	LRUCache     lrucache.Cache
+	BlackList    lrucache.Cache
+	DNSServer    string
+	DNSExpiry    time.Duration
+	DisableIPv6  bool
+	ForceIPv6    bool
+	Network      string // name of the network ("tcp", "tcp-tls", "udp")
+	EDNSEnabled  bool   // TODO : EDNS0 support
+	ExternalIP   string // TODO : EDNS0 ?
 }
 
 func (r *Resolver) LookupHost(name string) ([]string, error) {
@@ -67,7 +69,11 @@ func (r *Resolver) LookupIP(name string) ([]net.IP, error) {
 		lookupIP = r.lookupIP2
 	}
 
-	ips, err := lookupIP(name)
+	// ips, err := lookupIP(name)
+	v, err, shared := r.Singleflight.Do(name, func() (interface{}, error) {
+		return lookupIP(name)
+	})
+	ips := v.([]net.IP)
 	if err == nil {
 		if r.BlackList != nil {
 			ips1 := ips[:0]
@@ -88,7 +94,10 @@ func (r *Resolver) LookupIP(name string) ([]net.IP, error) {
 		}
 	}
 
-	glog.V(2).Infof("LookupIP(%#v) return %+v, err=%+v", name, ips, err)
+	r.Singleflight.Forget(name)
+
+	glog.V(2).Infof("LookupIP(%#v) return %+v, err=%+v, shared result: %t", name, ips, err, shared)
+
 	return ips, err
 }
 

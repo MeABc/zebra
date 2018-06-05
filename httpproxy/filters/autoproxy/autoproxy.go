@@ -267,7 +267,8 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 	d := &helpers.Dialer{
 		Dialer: d0,
 		Resolver: &helpers.Resolver{
-			LRUCache: lrucache.NewLRUCache(32),
+			Singleflight: &singleflight.Group{},
+			LRUCache:     lrucache.NewLRUCache(32),
 		},
 		Level: 1,
 	}
@@ -503,7 +504,9 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 		}
 		f.RegionLocator.InitIpinfoHandler()
 
-		f.RegionResolver = &helpers.Resolver{}
+		f.RegionResolver = &helpers.Resolver{
+			Singleflight: &singleflight.Group{},
+		}
 		if config.RegionFilters.EnableRemoteDNS {
 			f.RegionResolver.DNSServer = config.RegionFilters.DNSServer
 			_, _, _, err := helpers.ParseIPPort(config.RegionFilters.DNSServer)

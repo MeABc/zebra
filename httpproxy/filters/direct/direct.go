@@ -11,6 +11,7 @@ import (
 
 	"github.com/MeABc/glog"
 	"github.com/cloudflare/golibs/lrucache"
+	"golang.org/x/sync/singleflight"
 
 	"../../filters"
 	"../../helpers"
@@ -74,9 +75,10 @@ func NewFilter(config *Config) (filters.Filter, error) {
 			DualStack: config.Transport.Dialer.DualStack,
 		},
 		Resolver: &helpers.Resolver{
-			LRUCache:  lrucache.NewLRUCache(config.Transport.Dialer.DNSCacheSize),
-			DNSExpiry: time.Duration(config.Transport.Dialer.DNSCacheExpiry) * time.Second,
-			BlackList: lrucache.NewLRUCache(1024),
+			Singleflight: &singleflight.Group{},
+			LRUCache:     lrucache.NewLRUCache(config.Transport.Dialer.DNSCacheSize),
+			DNSExpiry:    time.Duration(config.Transport.Dialer.DNSCacheExpiry) * time.Second,
+			BlackList:    lrucache.NewLRUCache(1024),
 		},
 	}
 	if config.Transport.EnableRemoteDNS {

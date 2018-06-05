@@ -11,6 +11,7 @@ import (
 	"github.com/MeABc/glog"
 	"github.com/MeABc/net/http2"
 	"github.com/cloudflare/golibs/lrucache"
+	"golang.org/x/sync/singleflight"
 
 	"../../filters"
 	"../../helpers"
@@ -94,8 +95,9 @@ func NewFilter(config *Config) (filters.Filter, error) {
 	d := &helpers.Dialer{
 		Dialer: d0,
 		Resolver: &helpers.Resolver{
-			LRUCache:  lrucache.NewLRUCache(config.Transport.Dialer.DNSCacheSize),
-			DNSExpiry: time.Duration(config.Transport.Dialer.DNSCacheExpiry) * time.Second,
+			Singleflight: &singleflight.Group{},
+			LRUCache:     lrucache.NewLRUCache(config.Transport.Dialer.DNSCacheSize),
+			DNSExpiry:    time.Duration(config.Transport.Dialer.DNSCacheExpiry) * time.Second,
 		},
 		Level: 2,
 	}

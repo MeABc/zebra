@@ -20,6 +20,7 @@ import (
 	"github.com/MeABc/quic-go/h2quic"
 	"github.com/cloudflare/golibs/lrucache"
 	"github.com/dsnet/compress/brotli"
+	"golang.org/x/sync/singleflight"
 
 	"../../filters"
 	"../../helpers"
@@ -227,10 +228,11 @@ func NewFilter(config *Config) (filters.Filter, error) {
 	}
 
 	r := &helpers.Resolver{
-		LRUCache:    lrucache.NewLRUCache(config.Transport.Dialer.DNSCacheSize),
-		DNSExpiry:   time.Duration(config.Transport.Dialer.DNSCacheExpiry) * time.Second,
-		DisableIPv6: config.DisableIPv6,
-		ForceIPv6:   config.ForceIPv6,
+		Singleflight: &singleflight.Group{},
+		LRUCache:     lrucache.NewLRUCache(config.Transport.Dialer.DNSCacheSize),
+		DNSExpiry:    time.Duration(config.Transport.Dialer.DNSCacheExpiry) * time.Second,
+		DisableIPv6:  config.DisableIPv6,
+		ForceIPv6:    config.ForceIPv6,
 	}
 
 	if config.EnableRemoteDNS {
