@@ -10,7 +10,6 @@ import (
 	"net"
 	"net/http"
 	"path/filepath"
-	"strings"
 
 	"../../filters"
 )
@@ -42,14 +41,8 @@ func (f *Filter) IndexFilesRoundTrip(ctx context.Context, req *http.Request) (co
 
 		remote, _, err := net.SplitHostPort(req.RemoteAddr)
 		if err == nil && f.RegionLocator != nil {
-			if li, err := f.RegionLocator.Find(remote); err == nil {
-				regions := []string{li.Country}
-				for i, r := range []string{li.Region, li.City, li.Isp} {
-					if r != "" && r != "N/A" && r != regions[i] {
-						regions = append(regions, r)
-					}
-				}
-				remote = fmt.Sprintf("%s (%s)", remote, strings.Join(regions, " "))
+			if country, err := f.RegionLocator.Ipinfo(remote); err == nil {
+				remote = fmt.Sprintf("%s (%s)", remote, country)
 			}
 		}
 

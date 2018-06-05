@@ -3,7 +3,6 @@ package autoproxy
 import (
 	"context"
 	"crypto/tls"
-	"io/ioutil"
 	"mime"
 	"net"
 	"net/http"
@@ -14,7 +13,7 @@ import (
 
 	"github.com/MeABc/glog"
 	"github.com/cloudflare/golibs/lrucache"
-	"github.com/wangtuanjie/ip17mon"
+	"golang.org/x/sync/singleflight"
 
 	"../../filters"
 	"../../helpers"
@@ -61,12 +60,18 @@ type Config struct {
 	}
 	RegionFilters struct {
 		Enabled         bool
-		DataFile        string
+		URLs            map[string]string
 		EnableRemoteDNS bool
 		DNSServer       string
 		DNSCacheSize    int
-		Rules           map[string]string
-		IPRules         map[string]string
+		Duration        int
+		Proxy           struct {
+			Enabled bool
+			URL     string
+		}
+		UserAgent string
+		Rules     map[string]string
+		IPRules   map[string]string
 	}
 	IndexFiles struct {
 		Enabled    bool
@@ -164,7 +169,7 @@ type Filter struct {
 	RegionFiltersRules   map[string]filters.RoundTripFilter
 	RegionFiltersIPRules map[string]filters.RoundTripFilter
 	RegionResolver       *helpers.Resolver
-	RegionLocator        *ip17mon.Locator
+	RegionLocator        *IpinfoHandler
 	RegionFilterCache    lrucache.Cache
 }
 
@@ -452,18 +457,51 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 	}
 
 	if f.RegionFiltersEnabled {
-		resp, err := store.Get(f.Config.RegionFilters.DataFile)
-		if err != nil {
-			glog.Fatalf("AUTOPROXY: store.Get(%#v) error: %v", f.Config.RegionFilters.DataFile, err)
+		d3 := d
+		if config.RegionFilters.EnableRemoteDNS {
+			d3.Resolver.DNSServer = config.RegionFilters.DNSServer
+			_, _, _, err := helpers.ParseIPPort(config.RegionFilters.DNSServer)
+			if err != nil {
+				glog.Fatalf("AUTOPROXY: helpers.ParseIPPort(%v) failed", config.RegionFilters.DNSServer)
+			}
 		}
-		defer resp.Body.Close()
+		d3.Resolver.DNSExpiry = time.Duration(config.RegionFilters.Duration) * time.Second
 
-		data, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			glog.Fatalf("AUTOPROXY: ioutil.ReadAll(%#v) error: %v", resp.Body, err)
+		tr := &http.Transport{
+			Dial: d3.Dial,
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: false,
+				ClientSessionCache: tls.NewLRUClientSessionCache(1000),
+			},
+			TLSHandshakeTimeout: 4 * time.Second,
 		}
 
-		f.RegionLocator = ip17mon.NewLocatorWithData(data)
+		if config.RegionFilters.Proxy.Enabled {
+			fixedURL2, err := url.Parse(config.RegionFilters.Proxy.URL)
+			if err != nil {
+				glog.Fatalf("url.Parse(%#v) error: %s", config.RegionFilters.Proxy.URL, err)
+			}
+
+			dialer2, err := proxy.FromURL(fixedURL2, d3, nil)
+			if err != nil {
+				glog.Fatalf("proxy.FromURL(%#v) error: %s", fixedURL2.String(), err)
+			}
+
+			tr.Dial = dialer2.Dial
+			tr.DialTLS = nil
+			tr.Proxy = nil
+		}
+
+		f.RegionLocator = &IpinfoHandler{
+			URLs:         config.RegionFilters.URLs,
+			Cache:        lrucache.NewLRUCache(uint(config.RegionFilters.DNSCacheSize)),
+			CacheTTL:     86400 * time.Second,
+			Singleflight: &singleflight.Group{},
+			Transport:    tr,
+			RateLimit:    8,
+			UserAgent:    config.RegionFilters.UserAgent,
+		}
+		f.RegionLocator.InitIpinfoHandler()
 
 		f.RegionResolver = &helpers.Resolver{}
 		if config.RegionFilters.EnableRemoteDNS {
@@ -517,24 +555,6 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 
 func (f *Filter) FilterName() string {
 	return filterName
-}
-
-func (f *Filter) FindCountryByIP(ip string) (string, error) {
-	li, err := f.RegionLocator.Find(ip)
-	if err != nil {
-		return "", err
-	}
-
-	//FIXME: Who should be ashamed?
-	switch li.Country {
-	case "中国":
-		switch li.Region {
-		case "台湾", "香港":
-			li.Country = li.Region
-		}
-	}
-
-	return li.Country, nil
 }
 
 func (f *Filter) Request(ctx context.Context, req *http.Request) (context.Context, *http.Request, error) {
