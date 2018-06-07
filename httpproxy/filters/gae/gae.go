@@ -97,6 +97,7 @@ type Filter struct {
 	FakeOptionsMatcher *helpers.HostMatcher
 	SiteMatcher        *helpers.HostMatcher
 	DirectSiteMatcher  *helpers.HostMatcher
+	ToggleServerName   func(rule string)
 }
 
 func init() {
@@ -141,10 +142,11 @@ func NewFilter(config *Config) (filters.Filter, error) {
 			bytes.Equal(pkp[:], g3ecc)
 	}
 
+	directServerName := "fonts.googleapis.com"
 	googleTLSConfig := &tls.Config{
 		MinVersion:         tls.VersionTLS12,
 		InsecureSkipVerify: true,
-		ServerName:         "www.microsoft.com",
+		ServerName:         directServerName,
 		ClientSessionCache: tls.NewLRUClientSessionCache(config.TLSConfig.ClientSessionCacheSize),
 		CipherSuites: []uint16{
 			tls.TLS_RSA_WITH_AES_128_CBC_SHA,
@@ -204,7 +206,7 @@ func NewFilter(config *Config) (filters.Filter, error) {
 	}
 	googleTLSConfig.CipherSuites = pickupCiphers(config.TLSConfig.Ciphers)
 	if len(config.TLSConfig.ServerName) > 0 {
-		googleTLSConfig.ServerName = config.TLSConfig.ServerName[rand.Intn(len(config.TLSConfig.ServerName))]
+		directServerName = config.TLSConfig.ServerName[rand.Intn(len(config.TLSConfig.ServerName))]
 	}
 	if !config.DisableHTTP2 {
 		googleTLSConfig.NextProtos = []string{"h2", "http/1.1"}
@@ -470,6 +472,18 @@ func NewFilter(config *Config) (filters.Filter, error) {
 		urls[i], urls[j] = urls[j], urls[i]
 	})
 
+	var gaeServerName string
+	gaeServerName = config.AppIDs[rand.Intn(len(config.AppIDs))] + ".appspot.com"
+
+	toggleServerName := func(rule string) {
+		switch rule {
+		case "gae":
+			md.GoogleTLSConfig.ServerName = gaeServerName
+		case "direct":
+			md.GoogleTLSConfig.ServerName = directServerName
+		}
+	}
+
 	f := &Filter{
 		Config: *config,
 		GAETransport: &GAETransport{
@@ -488,6 +502,7 @@ func NewFilter(config *Config) (filters.Filter, error) {
 		ForceGAESuffixs:    forceGAESuffixs,
 		FakeOptionsMatcher: helpers.NewHostMatcherWithStrings(config.FakeOptions),
 		DirectSiteMatcher:  helpers.NewHostMatcherWithString(config.Site2Alias),
+		ToggleServerName:   toggleServerName,
 	}
 
 	if config.Transport.Proxy.Enabled {
@@ -612,8 +627,10 @@ func (f *Filter) RoundTrip(ctx context.Context, req *http.Request) (context.Cont
 	}
 
 	prefix := "FETCH"
+	f.ToggleServerName("gae")
 	if tr == f.Transport {
 		prefix = "DIRECT"
+		f.ToggleServerName("direct")
 	}
 
 	resp, err := tr.RoundTrip(req)
