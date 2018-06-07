@@ -59,7 +59,7 @@ func main() {
 
 	switch runtime.GOARCH {
 	case "386", "amd64":
-		helpers.SetConsoleTitle(fmt.Sprintf("GoProxy %s (go/%s)", version, gover))
+		helpers.SetConsoleTitle(fmt.Sprintf("Zebra %s (go/%s)", version, gover))
 	}
 
 	config := make(map[string]httpproxy.Config)
@@ -71,7 +71,7 @@ func main() {
 	}
 
 	fmt.Fprintf(os.Stderr, `------------------------------------------------------
-GoProxy Version    : %s (go/%s %s/%s)`,
+Zebra Version      : %s (go/%s %s/%s)`,
 		version, gover, runtime.GOOS, runtime.GOARCH)
 	for profile, config := range config {
 		if !config.Enabled {
@@ -90,7 +90,7 @@ GoProxy Version    : %s (go/%s %s/%s)`,
 			addr = net.JoinHostPort(ip, port)
 		}
 		fmt.Fprintf(os.Stderr, `
-GoProxy Profile    : %s
+Zebra Profile      : %s
 Listen Address     : %s
 Enabled Filters    : %v`,
 			profile,
@@ -130,14 +130,14 @@ GAE Mode           : TLS`)
 					urls = append(urls, s.URL)
 				}
 				fmt.Fprintf(os.Stderr, `
-PHP Servers         : %s`, strings.Join(urls, "|"))
+PHP Servers        : %s`, strings.Join(urls, "|"))
 			}
 		}
-		go httpproxy.ServeProfile(config, "goproxy "+version)
+		go httpproxy.ServeProfile(config, "zebra "+version)
 	}
 	fmt.Fprintf(os.Stderr, "\n------------------------------------------------------\n")
 
-	if ws, ok := os.LookupEnv("GOPROXY_WAIT_SECONDS"); ok {
+	if ws, ok := os.LookupEnv("ZEBRA_WAIT_SECONDS"); ok {
 		if ws1, err := strconv.Atoi(ws); err == nil {
 			time.Sleep(time.Duration(ws1) * time.Second)
 			return
