@@ -475,6 +475,10 @@ func NewFilter(config *Config) (filters.Filter, error) {
 	var gaeServerName string
 	gaeServerName = config.AppIDs[rand.Intn(len(config.AppIDs))] + ".appspot.com"
 
+	if len(config.CustomDomains) > 0 {
+		gaeServerName = config.CustomDomains[rand.Intn(len(config.CustomDomains))]
+	}
+
 	toggleServerName := func(rule string) {
 		switch rule {
 		case "gae":
