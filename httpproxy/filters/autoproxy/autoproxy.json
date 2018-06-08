@@ -44,7 +44,6 @@
 		"Enabled": false,
 		"URLs": {
 			"http://ip.taobao.com/service/getIpInfo.php?ip=%s": "taobao",
-			"http://int.dpool.sina.com.cn/iplookup/iplookup.php?format=json&ip=%s": "normal",
 			"https://api.ip.sb/geoip/%s": "normal",
 		},
 		"EnableRemoteDNS": false,
