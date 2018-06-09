@@ -209,13 +209,14 @@ func (f *Filter) pacUpdater() {
 		default:
 			break
 		}
-		resp.Body.Close()
 
 		data, err := ioutil.ReadAll(r)
 		if err != nil {
 			glog.Warningf("ioutil.ReadAll(%T) error: %v", r, err)
+			resp.Body.Close()
 			continue
 		}
+		resp.Body.Close()
 
 		_, err = f.Store.Delete(f.GFWList.Filename)
 		if err != nil {
