@@ -316,7 +316,7 @@ func NewFilter(config *Config) (filters.Filter, error) {
 			DualStack: md.DualStack,
 		}
 
-		dialer, err := proxy.FromURL(fixedURL, dialer0, &helpers.MultiResolver{md})
+		dialer, err := proxy.FromURL(fixedURL, dialer0, &helpers.MultiResolver{MultiDialer: md})
 		if err != nil {
 			glog.Fatalf("proxy.FromURL(%#v) error: %s", fixedURL.String(), err)
 		}

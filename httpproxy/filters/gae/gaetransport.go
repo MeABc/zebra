@@ -206,14 +206,13 @@ func (t *GAETransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		if err != nil {
 			if i == retryTimes-1 {
 				return nil, err
-			} else {
-				glog.Warningf("GAE: request \"%s\" error: %T(%v), retry...", req.URL.String(), err, err)
-				if err.Error() == "unexpected EOF" {
-					helpers.CloseConnections(t.Transport.RoundTripper)
-					return nil, err
-				}
-				continue
 			}
+			glog.Warningf("GAE: request \"%s\" error: %T(%v), retry...", req.URL.String(), err, err)
+			if err.Error() == "unexpected EOF" {
+				helpers.CloseConnections(t.Transport.RoundTripper)
+				return nil, err
+			}
+			continue
 		}
 
 		if resp.StatusCode != http.StatusOK {
