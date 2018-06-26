@@ -248,6 +248,7 @@ func NewFilter(config *Config) (filters.Filter, error) {
 	md := &helpers.MultiDialer{
 		KeepAlive:         time.Duration(config.Transport.Dialer.KeepAlive) * time.Second,
 		Timeout:           time.Duration(config.Transport.Dialer.Timeout) * time.Second,
+		Deadline:          time.Duration(config.Transport.ResponseHeaderTimeout+45) * time.Second,
 		DualStack:         config.Transport.Dialer.DualStack,
 		Resolver:          r,
 		SSLVerify:         config.SSLVerify,

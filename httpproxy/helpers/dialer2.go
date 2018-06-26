@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"net"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 type MultiDialer struct {
 	KeepAlive         time.Duration
 	Timeout           time.Duration
+	Deadline          time.Duration
 	DualStack         bool
 	Resolver          *Resolver
 	SSLVerify         bool
@@ -336,6 +338,7 @@ func (d *MultiDialer) DialQuic(network string, address string, tlsConfig *tls.Co
 func (d *MultiDialer) dialMultiQuic(hosts []string, port string, tlsConfig *tls.Config, config *quic.Config) (quic.Session, error) {
 	glog.V(3).Infof("dialMultiQuic( %v, %#v)", hosts, config)
 	type sessWithError struct {
+		u *net.UDPConn
 		s quic.Session
 		e error
 	}
@@ -347,8 +350,57 @@ func (d *MultiDialer) dialMultiQuic(hosts []string, port string, tlsConfig *tls.
 		go func(host string, c chan<- sessWithError) {
 			addr := net.JoinHostPort(host, port)
 
+			port1, err := strconv.Atoi(port)
+			if err != nil {
+				port1 = 443
+			}
+
+			udpConn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: 0})
+			if err != nil {
+				d.TLSConnDuration.Del(host)
+				d.TLSConnError.Set(host, err, time.Now().Add(d.ErrorConnExpiry))
+				lane <- sessWithError{udpConn, nil, err}
+				return
+			}
+
+			udpConn.SetDeadline(time.Now().Add(d.Deadline))
+
+			if d.TLSConnReadBuffer > 0 {
+				udpConn.SetReadBuffer(d.TLSConnReadBuffer)
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), d.Timeout)
+			defer cancel()
+
+			udpAddr := &net.UDPAddr{
+				IP:   net.ParseIP(host),
+				Port: port1,
+			}
+
+			if tlsConfig == nil {
+				tlsConfig = &tls.Config{
+					InsecureSkipVerify: !d.SSLVerify,
+					ServerName:         host,
+				}
+			}
+
+			if config == nil {
+				config = &quic.Config{
+					HandshakeTimeout:            d.Timeout,
+					IdleTimeout:                 d.Timeout,
+					RequestConnectionIDOmission: true,
+					KeepAlive:                   true,
+				}
+			}
+
 			start := time.Now()
-			sess, err := quic.DialAddr(addr, tlsConfig, config)
+			sess, err := quic.DialContext(ctx, udpConn, udpAddr, addr, tlsConfig, config)
+			if err != nil {
+				d.TLSConnDuration.Del(host)
+				d.TLSConnError.Set(host, err, time.Now().Add(d.ErrorConnExpiry))
+				lane <- sessWithError{udpConn, sess, err}
+				return
+			}
 			end := time.Now()
 
 			if err != nil {
@@ -358,7 +410,7 @@ func (d *MultiDialer) dialMultiQuic(hosts []string, port string, tlsConfig *tls.
 				d.TLSConnDuration.Set(host, end.Sub(start), end.Add(d.GoodConnExpiry))
 			}
 
-			lane <- sessWithError{sess, err}
+			lane <- sessWithError{udpConn, sess, err}
 		}(host, lane)
 	}
 
@@ -372,6 +424,9 @@ func (d *MultiDialer) dialMultiQuic(hosts []string, port string, tlsConfig *tls.
 					r1 = <-lane
 					if r1.s != nil {
 						r1.s.Close(nil)
+					}
+					if r1.u != nil {
+						r1.u.Close()
 					}
 				}
 			}(len(hosts) - 1 - i)
