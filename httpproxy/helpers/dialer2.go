@@ -453,7 +453,6 @@ func (d *MultiDialer) pickupTLSHosts(hosts []string, n int) []string {
 	for _, host := range hosts {
 		if _, ok := d.IPBlackList.GetQuiet(host); ok {
 			d.TLSConnDuration.Del(host)
-			d.TLSConnError.Del(host)
 			continue
 		} else if duration, ok := d.TLSConnDuration.GetNotStale(host); ok {
 			if d, ok := duration.(time.Duration); !ok {
