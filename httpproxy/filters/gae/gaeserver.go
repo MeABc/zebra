@@ -189,11 +189,12 @@ func (s *Servers) PickFetchServer(req *http.Request, base int) url.URL {
 		perfer = true
 	}
 
+	s.muURL.RLock()
+	defer s.muURL.RUnlock()
+
 	if perfer {
 		return s.curURL.Load().(url.URL)
 	}
 
-	s.muURL.RLock()
-	defer s.muURL.RUnlock()
 	return s.urls1[rand.Intn(len(s.urls1))]
 }
