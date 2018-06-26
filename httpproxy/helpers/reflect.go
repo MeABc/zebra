@@ -58,6 +58,8 @@ func ReflectRemoteAddrFromResponse(resp *http.Response) (string, error) {
 		v = v.FieldByName("tconn").Elem()
 	case "*quic.stream":
 		return resp.Body.(net.Conn).RemoteAddr().String(), nil
+	case "*gae.QuicBody":
+		return resp.Body.(net.Conn).RemoteAddr().String(), nil
 	default:
 		return "", fmt.Errorf("ReflectRemoteAddrFromResponse: unsupport %#v Type=%s", v, v.Type().String())
 	}
