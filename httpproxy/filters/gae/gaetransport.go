@@ -23,6 +23,9 @@ type Transport struct {
 	RetryTimes   int
 }
 
+// https://github.com/golang/lint/blob/master/testdata/contextkeytypes.go
+type responseHeaderTimeoutKey struct{}
+
 type QuicBody struct {
 	quic.Stream
 	Transport   *h2quic.RoundTripper
@@ -51,7 +54,7 @@ func (t *Transport) roundTripQuic(req *http.Request) (*http.Response, error) {
 	t1 := t.RoundTripper.(*h2quic.RoundTripper)
 
 	if !strings.HasSuffix(req.Host, ".appspot.com") {
-		req = req.WithContext(context.WithValue(req.Context(), "ResponseHeaderTimeout", 8*time.Second))
+		req = req.WithContext(context.WithValue(req.Context(), &responseHeaderTimeoutKey{}, 8*time.Second))
 	}
 
 	resp, err := t1.RoundTripOpt(req, h2quic.RoundTripOpt{OnlyCachedConn: true})
