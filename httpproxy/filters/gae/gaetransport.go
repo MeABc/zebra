@@ -133,7 +133,26 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		}
 
 		if resp != nil && resp.StatusCode == http.StatusBadRequest {
-			glog.Warningf("GAE %T.RoundTrip(%#v) get HTTP Error %d", t.RoundTripper, req.URL.String(), resp.StatusCode)
+			var ip string
+			glog.Warningf("GAE %T.RoundTrip(%#v) %s HTTP Error %d", t.RoundTripper, req.URL.String(), req.Method, resp.StatusCode)
+
+			if addr, err := helpers.ReflectRemoteAddrFromResponse(resp); err == nil {
+				if ip, _, err := net.SplitHostPort(addr); err == nil {
+					if t.MultiDialer != nil {
+						duration := 5 * time.Minute
+						glog.Warningf("GAE: %s req.Method: %s, HTTP StatusCode: %d, add to blacklist for %v", ip, req.Method, resp.StatusCode, duration)
+						t.MultiDialer.IPBlackList.Set(ip, struct{}{}, time.Now().Add(duration))
+					}
+				}
+			}
+
+			if i == retry-1 {
+				return resp, err
+			}
+
+			if ip != "" {
+				helpers.CloseConnectionByRemoteHost(t.RoundTripper, ip)
+			}
 			continue
 		}
 
@@ -240,6 +259,9 @@ func (t *GAETransport) RoundTrip(req *http.Request) (*http.Response, error) {
 						}
 					}
 				}
+				continue
+			case http.StatusBadRequest:
+				time.Sleep(retryDelay)
 				continue
 			default:
 				return resp, nil
