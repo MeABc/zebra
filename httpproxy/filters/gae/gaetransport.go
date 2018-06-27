@@ -276,7 +276,7 @@ func (t *GAETransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			resp1.Request = req
 		}
 		if i == retryTimes-1 {
-			return resp, err
+			return resp1, err
 		}
 
 		switch resp1.StatusCode {
