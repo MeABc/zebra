@@ -167,6 +167,7 @@ func (s *Servers) DecodeResponse(resp *http.Response) (resp1 *http.Response, err
 			b, _ := ioutil.ReadAll(resp1.Body)
 			if b != nil && len(b) > 0 {
 				resp1.Body = helpers.NewMultiReadCloser(bytes.NewReader(b), resp.Body)
+				resp.Body.Close()
 			} else {
 				resp1.Body = resp.Body
 			}
