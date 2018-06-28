@@ -28,6 +28,8 @@ type Handler struct {
 
 func (h Handler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	var err error
+	req.Body = &helpers.FakeCloseReadCloser{ReadCloser: req.Body}
+	defer req.Body.(*helpers.FakeCloseReadCloser).RealClose()
 
 	remoteAddr := req.RemoteAddr
 
@@ -79,9 +81,9 @@ func (h Handler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		req = req.WithContext(ctx)
 	}
 
-	if req.Body != nil {
-		defer req.Body.Close()
-	}
+	// if req.Body != nil {
+	// 	defer req.Body.Close()
+	// }
 
 	// Filter Request -> Response
 	var resp *http.Response

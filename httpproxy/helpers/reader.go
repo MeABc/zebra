@@ -94,3 +94,22 @@ func (bc ReaderCloser) Read(buf []byte) (int, error) {
 func (bc ReaderCloser) Close() error {
 	return bc.Closer.Close()
 }
+
+// Error http: invalid read on closed body
+// https://github.com/wuyongxiu/wuyongxiu.github.io/issues/14
+// https://github.com/flynn/flynn/issues/872
+// https://github.com/flynn/flynn/pull/875/files
+type FakeCloseReadCloser struct {
+	io.ReadCloser
+}
+
+func (w *FakeCloseReadCloser) Close() error {
+	return nil
+}
+
+func (w *FakeCloseReadCloser) RealClose() error {
+	if w.ReadCloser == nil {
+		return nil
+	}
+	return w.ReadCloser.Close()
+}
