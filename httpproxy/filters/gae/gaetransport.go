@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -153,6 +154,10 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 			if ip != "" {
 				helpers.CloseConnectionByRemoteHost(t.RoundTripper, ip)
 			}
+			if resp.Body != nil {
+				io.Copy(ioutil.Discard, resp.Body)
+				resp.Body.Close()
+			}
 			continue
 		}
 
@@ -162,7 +167,10 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if resp != nil && resp.StatusCode >= http.StatusBadRequest {
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			resp.Body.Close()
+			if resp.Body != nil {
+				io.Copy(ioutil.Discard, resp.Body)
+				resp.Body.Close()
+			}
 			return nil, err
 		}
 
@@ -223,6 +231,10 @@ func (t *GAETransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		resp, err := t.Transport.RoundTrip(req1)
 
 		if err != nil {
+			if resp != nil && resp.Body != nil {
+				io.Copy(ioutil.Discard, resp.Body)
+				resp.Body.Close()
+			}
 			if i == retryTimes-1 {
 				return nil, err
 			}
@@ -261,7 +273,6 @@ func (t *GAETransport) RoundTrip(req *http.Request) (*http.Response, error) {
 				}
 				continue
 			case http.StatusBadRequest:
-				time.Sleep(retryDelay)
 				continue
 			default:
 				return resp, nil
@@ -270,6 +281,10 @@ func (t *GAETransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 		resp1, err := t.Servers.DecodeResponse(resp)
 		if err != nil {
+			if resp1 != nil && resp1.Body != nil {
+				io.Copy(ioutil.Discard, resp1.Body)
+				resp1.Body.Close()
+			}
 			return nil, err
 		}
 		if resp1 != nil {
@@ -283,7 +298,10 @@ func (t *GAETransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		case http.StatusBadGateway:
 			body, err := ioutil.ReadAll(resp1.Body)
 			if err != nil {
-				resp1.Body.Close()
+				if resp1 != nil && resp1.Body != nil {
+					io.Copy(ioutil.Discard, resp1.Body)
+					resp1.Body.Close()
+				}
 				return nil, err
 			}
 			resp1.Body.Close()
