@@ -49,6 +49,12 @@ func (b *QuicBody) OnError(err error) {
 		glog.Warningf("GAE: QuicBody(%v) is timeout, add to blacklist for %v", ip, duration)
 		b.MultiDialer.IPBlackList.Set(ip, struct{}{}, time.Now().Add(duration))
 	}
+
+	if e, ok := err.(interface {
+		Error() string
+	}); ok && e.Error() == "PeerGoingAway: " {
+		b.Transport.Close()
+	}
 }
 
 func (t *Transport) roundTripQuic(req *http.Request) (*http.Response, error) {
@@ -130,6 +136,20 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 		if err != nil {
 			glog.Warningf("GAE %T.RoundTrip(%#v) error: %+v", t.RoundTripper, req.URL.String(), err)
+			if resp != nil && resp.Body != nil {
+				io.Copy(ioutil.Discard, resp.Body)
+				resp.Body.Close()
+			}
+
+			if isQuic {
+				if ne, ok := err.(*net.OpError); ok && ne != nil && ne.Addr != nil {
+					if ne.Op == "read" && ne.Err.Error() == "InvalidHeadersStreamData: PeerGoingAway: " {
+						if ip, _, err := net.SplitHostPort(ne.Addr.String()); err == nil {
+							helpers.CloseConnectionByRemoteHost(t.RoundTripper, ip)
+						}
+					}
+				}
+			}
 			continue
 		}
 
