@@ -264,28 +264,28 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 		// DualStack: true,
 	}
 
-	d := &helpers.Dialer{
-		Dialer: d0,
-		Resolver: &helpers.Resolver{
-			Singleflight: &singleflight.Group{},
-			LRUCache:     lrucache.NewLRUCache(32),
-		},
-		Level: 1,
-	}
-
 	if f.GFWListEnabled {
-		d1 := d
+		d := &helpers.Dialer{
+			Dialer: d0,
+			Resolver: &helpers.Resolver{
+				Singleflight: &singleflight.Group{},
+				LRUCache:     lrucache.NewLRUCache(32),
+			},
+			Level: 1,
+		}
+
 		if config.GFWList.EnableRemoteDNS {
-			d1.Resolver.DNSServer = config.GFWList.DNSServer
+			d.Resolver.DNSServer = config.GFWList.DNSServer
 			_, _, _, err := helpers.ParseIPPort(config.GFWList.DNSServer)
 			if err != nil {
 				glog.Fatalf("AUTOPROXY: helpers.ParseIPPort(%v) failed", config.GFWList.DNSServer)
 			}
 		}
-		d1.Resolver.DNSExpiry = time.Duration(config.GFWList.Duration*2) * time.Second
+
+		d.Resolver.DNSExpiry = time.Duration(config.GFWList.Duration*2) * time.Second
 
 		f.GFWList.Transport = &http.Transport{
-			Dial: d1.Dial,
+			Dial: d.Dial,
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: false,
 				ClientSessionCache: tls.NewLRUClientSessionCache(1000),
@@ -299,7 +299,7 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 				glog.Fatalf("url.Parse(%#v) error: %s", config.GFWList.Proxy.URL, err)
 			}
 
-			dialer1, err := proxy.FromURL(fixedURL1, d1, nil)
+			dialer1, err := proxy.FromURL(fixedURL1, d, nil)
 			if err != nil {
 				glog.Fatalf("proxy.FromURL(%#v) error: %s", fixedURL1.String(), err)
 			}
@@ -313,20 +313,29 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 	}
 
 	if f.CNIPListEnabled {
-		d2 := d
+		d := &helpers.Dialer{
+			Dialer: d0,
+			Resolver: &helpers.Resolver{
+				Singleflight: &singleflight.Group{},
+				LRUCache:     lrucache.NewLRUCache(32),
+			},
+			Level: 1,
+		}
+
 		if config.CNIPList.EnableRemoteDNS {
-			d2.Resolver.DNSServer = config.CNIPList.DNSServer
+			d.Resolver.DNSServer = config.CNIPList.DNSServer
 			_, _, _, err := helpers.ParseIPPort(config.CNIPList.DNSServer)
 			if err != nil {
 				glog.Fatalf("AUTOPROXY: helpers.ParseIPPort(%v) failed", config.CNIPList.DNSServer)
 			}
 		}
-		d2.Resolver.DNSExpiry = time.Duration(config.CNIPList.Duration*2) * time.Second
-		f.CNIPListResolver = d2.Resolver
+
+		d.Resolver.DNSExpiry = time.Duration(config.CNIPList.Duration*2) * time.Second
+		f.CNIPListResolver = d.Resolver
 		f.CNIPListResolver.LRUCache = lrucache.NewLRUCache(1000)
 
 		f.CNIPList.Transport = &http.Transport{
-			Dial: d2.Dial,
+			Dial: d.Dial,
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: false,
 				ClientSessionCache: tls.NewLRUClientSessionCache(1000),
@@ -340,7 +349,7 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 				glog.Fatalf("url.Parse(%#v) error: %s", config.CNIPList.Proxy.URL, err)
 			}
 
-			dialer2, err := proxy.FromURL(fixedURL2, d2, nil)
+			dialer2, err := proxy.FromURL(fixedURL2, d, nil)
 			if err != nil {
 				glog.Fatalf("proxy.FromURL(%#v) error: %s", fixedURL2.String(), err)
 			}
@@ -374,20 +383,29 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 	}
 
 	if f.CNDomainListEnabled {
-		d2 := d
+		d := &helpers.Dialer{
+			Dialer: d0,
+			Resolver: &helpers.Resolver{
+				Singleflight: &singleflight.Group{},
+				LRUCache:     lrucache.NewLRUCache(32),
+			},
+			Level: 1,
+		}
+
 		if config.CNDomainList.EnableRemoteDNS {
-			d2.Resolver.DNSServer = config.CNDomainList.DNSServer
+			d.Resolver.DNSServer = config.CNDomainList.DNSServer
 			_, _, _, err := helpers.ParseIPPort(config.CNDomainList.DNSServer)
 			if err != nil {
 				glog.Fatalf("AUTOPROXY: helpers.ParseIPPort(%v) failed", config.CNDomainList.DNSServer)
 			}
 		}
-		d2.Resolver.DNSExpiry = time.Duration(config.CNDomainList.Duration*2) * time.Second
-		f.CNDomainListResolver = d2.Resolver
+
+		d.Resolver.DNSExpiry = time.Duration(config.CNDomainList.Duration*2) * time.Second
+		f.CNDomainListResolver = d.Resolver
 		f.CNDomainListResolver.LRUCache = lrucache.NewLRUCache(1000)
 
 		f.CNDomainList.Transport = &http.Transport{
-			Dial: d2.Dial,
+			Dial: d.Dial,
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: false,
 				ClientSessionCache: tls.NewLRUClientSessionCache(1000),
@@ -401,7 +419,7 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 				glog.Fatalf("url.Parse(%#v) error: %s", config.CNDomainList.Proxy.URL, err)
 			}
 
-			dialer2, err := proxy.FromURL(fixedURL2, d2, nil)
+			dialer2, err := proxy.FromURL(fixedURL2, d, nil)
 			if err != nil {
 				glog.Fatalf("proxy.FromURL(%#v) error: %s", fixedURL2.String(), err)
 			}
@@ -458,18 +476,27 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 	}
 
 	if f.RegionFiltersEnabled {
-		d3 := d
+		d := &helpers.Dialer{
+			Dialer: d0,
+			Resolver: &helpers.Resolver{
+				Singleflight: &singleflight.Group{},
+				LRUCache:     lrucache.NewLRUCache(32),
+			},
+			Level: 1,
+		}
+
 		if config.RegionFilters.EnableRemoteDNS {
-			d3.Resolver.DNSServer = config.RegionFilters.DNSServer
+			d.Resolver.DNSServer = config.RegionFilters.DNSServer
 			_, _, _, err := helpers.ParseIPPort(config.RegionFilters.DNSServer)
 			if err != nil {
 				glog.Fatalf("AUTOPROXY: helpers.ParseIPPort(%v) failed", config.RegionFilters.DNSServer)
 			}
 		}
-		d3.Resolver.DNSExpiry = time.Duration(config.RegionFilters.Duration) * time.Second
+
+		d.Resolver.DNSExpiry = time.Duration(config.RegionFilters.Duration) * time.Second
 
 		tr := &http.Transport{
-			Dial: d3.Dial,
+			Dial: d.Dial,
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: false,
 				ClientSessionCache: tls.NewLRUClientSessionCache(1000),
@@ -483,7 +510,7 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 				glog.Fatalf("url.Parse(%#v) error: %s", config.RegionFilters.Proxy.URL, err)
 			}
 
-			dialer2, err := proxy.FromURL(fixedURL2, d3, nil)
+			dialer2, err := proxy.FromURL(fixedURL2, d, nil)
 			if err != nil {
 				glog.Fatalf("proxy.FromURL(%#v) error: %s", fixedURL2.String(), err)
 			}
@@ -507,6 +534,7 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 		f.RegionResolver = &helpers.Resolver{
 			Singleflight: &singleflight.Group{},
 		}
+
 		if config.RegionFilters.EnableRemoteDNS {
 			f.RegionResolver.DNSServer = config.RegionFilters.DNSServer
 			_, _, _, err := helpers.ParseIPPort(config.RegionFilters.DNSServer)
@@ -585,11 +613,13 @@ func (f *Filter) Request(ctx context.Context, req *http.Request) (context.Contex
 	if f.CNDomainListEnabled {
 		if f1, ok := f.CNDomainListCache.Get(host); ok {
 			if f1 != nil {
-				glog.V(2).Infof("%s \"AUTOPROXY CNDomainList %s %s %s\" with %T", req.RemoteAddr, req.Method, req.URL.String(), req.Proto, f1)
+				glog.V(3).Infof("%s \"AUTOPROXY CNDomainList Cache %s %s %s\" with %T", req.RemoteAddr, req.Method, req.URL.String(), req.Proto, f1)
 				filters.SetRoundTripFilter(ctx, f1.(filters.RoundTripFilter))
 				return ctx, req, nil
 			}
-		} else if domainMatchList(host, f.CNDomainListDomains) {
+		}
+
+		if domainMatchList(host, f.CNDomainListDomains) {
 			rule := f.CNDomainListRule
 			glog.V(2).Infof("%s \"AUTOPROXY CNDomainList %s %s %s\" with %T", req.RemoteAddr, req.Method, req.URL.String(), req.Proto, rule)
 			f.CNDomainListCache.Set(host, rule, time.Now().Add(time.Hour))
@@ -601,11 +631,13 @@ func (f *Filter) Request(ctx context.Context, req *http.Request) (context.Contex
 	if f.CNIPListEnabled {
 		if f1, ok := f.CNIPListCache.Get(host); ok {
 			if f1 != nil {
-				glog.V(2).Infof("%s \"AUTOPROXY CNIPList %s %s %s\" with %T", req.RemoteAddr, req.Method, req.URL.String(), req.Proto, f1)
+				glog.V(3).Infof("%s \"AUTOPROXY CNIPList Cache %s %s %s\" with %T", req.RemoteAddr, req.Method, req.URL.String(), req.Proto, f1)
 				filters.SetRoundTripFilter(ctx, f1.(filters.RoundTripFilter))
 				return ctx, req, nil
 			}
-		} else if ips, err := f.CNIPListResolver.LookupIP(host); err == nil && len(ips) > 0 {
+		}
+
+		if ips, err := f.CNIPListResolver.LookupIP(host); err == nil && len(ips) > 0 {
 			ip := ips[0]
 			if ipInIPNetList(ip, f.CNIPListIPNets) {
 				rule := f.CNIPListRule
@@ -620,36 +652,52 @@ func (f *Filter) Request(ctx context.Context, req *http.Request) (context.Contex
 	if f.RegionFiltersEnabled {
 		if f1, ok := f.RegionFilterCache.Get(host); ok {
 			if f1 != nil {
+				glog.V(3).Infof("%s \"AUTOPROXY RegionFilters Cache %s %s %s\" with %T", req.RemoteAddr, req.Method, req.URL.String(), req.Proto, f1)
 				filters.SetRoundTripFilter(ctx, f1.(filters.RoundTripFilter))
+				return ctx, req, nil
 			}
-		} else if ips, err := f.RegionResolver.LookupIP(host); err == nil && len(ips) > 0 {
+		}
+
+		if ips, err := f.RegionResolver.LookupIP(host); err == nil && len(ips) > 0 {
 			ip := ips[0]
 
 			if ip.IsLoopback() && !(strings.Contains(host, ".local") || strings.Contains(host, "localhost.")) {
 				glog.V(2).Infof("%s \"AUTOPROXY RegionFilters BYPASS Loopback %s %s %s\" with nil", req.RemoteAddr, req.Method, req.URL.String(), req.Proto)
 				f.RegionFilterCache.Set(host, nil, time.Now().Add(time.Hour))
-			} else if ip.To4() == nil {
+			}
+
+			if ip.To4() == nil {
 				if f1, ok := f.RegionFiltersRules["ipv6"]; ok {
 					glog.V(2).Infof("%s \"AUTOPROXY RegionFilters IPv6 %s %s %s\" with %T", req.RemoteAddr, req.Method, req.URL.String(), req.Proto, f1)
 					f.RegionFilterCache.Set(host, f1, time.Now().Add(time.Hour))
 					filters.SetRoundTripFilter(ctx, f1)
+					return ctx, req, nil
 				}
-			} else if f1, ok := f.RegionFiltersIPRules[ip.String()]; ok {
+			}
+
+			if f1, ok := f.RegionFiltersIPRules[ip.String()]; ok {
 				glog.V(2).Infof("%s \"AUTOPROXY RegionFilters IPRules %s %s %s\" with %T", req.RemoteAddr, req.Method, req.URL.String(), req.Proto, f1)
 				f.RegionFilterCache.Set(host, f1, time.Now().Add(time.Hour))
 				filters.SetRoundTripFilter(ctx, f1)
-			} else if country, err := f.FindCountryByIP(ip.String()); err == nil {
+				return ctx, req, nil
+			}
+
+			if country, err := f.FindCountryByIP(ip.String()); err == nil {
 				if f1, ok := f.RegionFiltersRules[country]; ok {
 					glog.V(2).Infof("%s \"AUTOPROXY RegionFilters %s %s %s %s\" with %T", req.RemoteAddr, country, req.Method, req.URL.String(), req.Proto, f1)
 					f.RegionFilterCache.Set(host, f1, time.Now().Add(time.Hour))
 					filters.SetRoundTripFilter(ctx, f1)
-				} else if f1, ok := f.RegionFiltersRules["default"]; ok {
+					return ctx, req, nil
+				}
+
+				if f1, ok := f.RegionFiltersRules["default"]; ok {
 					glog.V(2).Infof("%s \"AUTOPROXY RegionFilters Default %s %s %s\" with %T", req.RemoteAddr, req.Method, req.URL.String(), req.Proto, f1)
 					f.RegionFilterCache.Set(host, f1, time.Now().Add(time.Hour))
 					filters.SetRoundTripFilter(ctx, f1)
-				} else {
-					f.RegionFilterCache.Set(host, nil, time.Now().Add(time.Hour))
+					return ctx, req, nil
 				}
+
+				f.RegionFilterCache.Set(host, nil, time.Now().Add(time.Hour))
 			}
 		}
 	}
