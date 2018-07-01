@@ -169,7 +169,7 @@ function build_repo() {
     exit 1
   fi
 
-  awk 'match($1, /"((github\.com|golang\.org|gopkg\.in)\/.+)"/) {if (!seen[$1]++) {gsub("\"", "", $1); print $1}}' "$(find . -name "*.go")" | xargs -n1 -i go get -u -v {}
+  awk 'match($1, /"((github\.com|golang\.org|gopkg\.in)\/.+)"/) {if (!seen[$1]++) {gsub("\"", "", $1); print $1}}' $(find . -name "*.go") | xargs -n1 -i go get -u -v {}
 
   go test -v ./httpproxy/helpers
 
@@ -250,7 +250,7 @@ EOF
 import os
 __file__ = os.path.join(os.path.dirname(__file__), 'zebra-macos.command')
 text = open(__file__, 'rb').read()
-code = compile(text[text.index('\\n'):], __file__, 'exec')
+code = compile(text[text.index('\n'):], __file__, 'exec')
 exec code
 EOF
   chmod +x Zebra.app/Contents/MacOS/zebra-macos
