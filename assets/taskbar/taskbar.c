@@ -20,7 +20,7 @@ extern "C" WINBASEAPI HWND WINAPI GetConsoleWindow();
 #endif
 
 #define NID_UID 123
-#define WM_TASKBARNOTIFY WM_USER+20
+#define WM_TASKBARNOTIFY WM_USER + 20
 #define WM_TASKBARNOTIFY_MENUITEM_SHOW (WM_USER + 21)
 #define WM_TASKBARNOTIFY_MENUITEM_HIDE (WM_USER + 22)
 #define WM_TASKBARNOTIFY_MENUITEM_RELOAD (WM_USER + 23)
@@ -44,8 +44,8 @@ volatile DWORD dwChildrenPid;
 static DWORD MyGetProcessId(HANDLE hProcess)
 {
     // https://gist.github.com/kusma/268888
-    typedef DWORD (WINAPI *pfnGPI)(HANDLE);
-    typedef ULONG (WINAPI *pfnNTQIP)(HANDLE, ULONG, PVOID, ULONG, PULONG);
+    typedef DWORD(WINAPI * pfnGPI)(HANDLE);
+    typedef ULONG(WINAPI * pfnNTQIP)(HANDLE, ULONG, PVOID, ULONG, PULONG);
 
     static int first = 1;
     static pfnGPI pfnGetProcessId;
@@ -78,12 +78,34 @@ static DWORD MyGetProcessId(HANDLE hProcess)
     return 0;
 }
 
+// static BOOL MyEndTask(DWORD pid)
+// {
+//     WCHAR szCmd[1024] = {0};
+//     wsprintf(szCmd, L"taskkill /f /pid %d", pid);
+//     return _wsystem(szCmd) == 0;
+// }
 
-static BOOL MyEndTask(DWORD pid)
+// fix issue 8 -- 在win10专业版下，重新载入失败
+// https://github.com/phuslu/taskbar/issues/8
+static BOOL MyEndTask(DWORD dwPid)
 {
-    WCHAR szCmd[1024] = {0};
-    wsprintf(szCmd, L"taskkill /f /pid %d", pid);
-    return _wsystem(szCmd) == 0;
+    DWORD DELAYTIME = 2000;
+    HANDLE hPrc;
+
+    if (0 == dwPid)
+        return FALSE;
+    hPrc = OpenProcess(PROCESS_ALL_ACCESS, FALSE, dwPid); // Opens handle to the process.
+    if (!TerminateProcess(hPrc, 0))                       // Terminates a process.
+    {
+        CloseHandle(hPrc);
+        return FALSE;
+    }
+    else
+    {
+        WaitForSingleObject(hPrc, DELAYTIME); // At most ,wait 2000  millisecond.
+    }
+    CloseHandle(hPrc);
+    return TRUE;
 }
 
 BOOL ShowTrayIcon(LPCTSTR lpszProxy, DWORD dwMessage)
@@ -91,17 +113,17 @@ BOOL ShowTrayIcon(LPCTSTR lpszProxy, DWORD dwMessage)
     NOTIFYICONDATA nid;
     ZeroMemory(&nid, sizeof(NOTIFYICONDATA));
     nid.cbSize = (DWORD)sizeof(NOTIFYICONDATA);
-    nid.hWnd   = hWnd;
-    nid.uID    = NID_UID;
-    nid.uFlags = NIF_ICON|NIF_MESSAGE;
-    nid.dwInfoFlags=NIIF_INFO;
+    nid.hWnd = hWnd;
+    nid.uID = NID_UID;
+    nid.uFlags = NIF_ICON | NIF_MESSAGE;
+    nid.dwInfoFlags = NIIF_INFO;
     nid.uCallbackMessage = WM_TASKBARNOTIFY;
     nid.hIcon = LoadIcon(hInst, (LPCTSTR)IDI_SMALL);
     nid.uTimeout = 3 * 1000 | NOTIFYICON_VERSION;
     lstrcpy(nid.szInfoTitle, szTitle);
     if (lpszProxy)
     {
-        nid.uFlags |= NIF_INFO|NIF_TIP;
+        nid.uFlags |= NIF_INFO | NIF_TIP;
         if (lstrlen(lpszProxy) > 0)
         {
             lstrcpy(nid.szTip, lpszProxy);
@@ -113,7 +135,7 @@ BOOL ShowTrayIcon(LPCTSTR lpszProxy, DWORD dwMessage)
             lstrcpy(nid.szTip, szTooltip);
         }
     }
-    Shell_NotifyIcon(dwMessage?dwMessage:NIM_ADD, &nid);
+    Shell_NotifyIcon(dwMessage ? dwMessage : NIM_ADD, &nid);
     return TRUE;
 }
 
@@ -121,12 +143,11 @@ BOOL DeleteTrayIcon()
 {
     NOTIFYICONDATA nid;
     nid.cbSize = (DWORD)sizeof(NOTIFYICONDATA);
-    nid.hWnd   = hWnd;
-    nid.uID    = NID_UID;
+    nid.hWnd = hWnd;
+    nid.uID = NID_UID;
     Shell_NotifyIcon(NIM_DELETE, &nid);
     return TRUE;
 }
-
 
 LPCTSTR GetWindowsProxy()
 {
@@ -142,7 +163,7 @@ LPCTSTR GetWindowsProxy()
                                       &hKey))
     {
         szProxy[0] = 0;
-        dwSize = sizeof(szProxy)/sizeof(szProxy[0]);
+        dwSize = sizeof(szProxy) / sizeof(szProxy[0]);
         RegQueryValueExW(hKey, L"AutoConfigURL", NULL, 0, (LPBYTE)&szProxy, &dwSize);
         if (wcslen(szProxy))
         {
@@ -157,7 +178,7 @@ LPCTSTR GetWindowsProxy()
             return L"";
         }
         szProxy[0] = 0;
-        dwSize = sizeof(szProxy)/sizeof(szProxy[0]);
+        dwSize = sizeof(szProxy) / sizeof(szProxy[0]);
         RegQueryValueExW(hKey, L"ProxyServer", NULL, 0, (LPBYTE)&szProxy, &dwSize);
         if (wcslen(szProxy))
         {
@@ -168,28 +189,27 @@ LPCTSTR GetWindowsProxy()
     return szProxy;
 }
 
-
-BOOL SetWindowsProxy(WCHAR* szProxy, const WCHAR* szProxyInterface)
+BOOL SetWindowsProxy(WCHAR *szProxy, const WCHAR *szProxyInterface)
 {
     INTERNET_PER_CONN_OPTION_LIST conn_options;
-    BOOL    bReturn;
-    DWORD   dwBufferSize = sizeof(conn_options);
+    BOOL bReturn;
+    DWORD dwBufferSize = sizeof(conn_options);
 
     if (wcslen(szProxy) == 0)
     {
         conn_options.dwSize = dwBufferSize;
-        conn_options.pszConnection = (WCHAR*)szProxyInterface;
+        conn_options.pszConnection = (WCHAR *)szProxyInterface;
         conn_options.dwOptionCount = 1;
-        conn_options.pOptions = (INTERNET_PER_CONN_OPTION*)malloc(sizeof(INTERNET_PER_CONN_OPTION)*conn_options.dwOptionCount);
+        conn_options.pOptions = (INTERNET_PER_CONN_OPTION *)malloc(sizeof(INTERNET_PER_CONN_OPTION) * conn_options.dwOptionCount);
         conn_options.pOptions[0].dwOption = INTERNET_PER_CONN_FLAGS;
         conn_options.pOptions[0].Value.dwValue = PROXY_TYPE_DIRECT;
     }
     else if (wcsstr(szProxy, L"://") != NULL)
     {
         conn_options.dwSize = dwBufferSize;
-        conn_options.pszConnection = (WCHAR*)szProxyInterface;
+        conn_options.pszConnection = (WCHAR *)szProxyInterface;
         conn_options.dwOptionCount = 3;
-        conn_options.pOptions = (INTERNET_PER_CONN_OPTION*)malloc(sizeof(INTERNET_PER_CONN_OPTION)*conn_options.dwOptionCount);
+        conn_options.pOptions = (INTERNET_PER_CONN_OPTION *)malloc(sizeof(INTERNET_PER_CONN_OPTION) * conn_options.dwOptionCount);
         conn_options.pOptions[0].dwOption = INTERNET_PER_CONN_FLAGS;
         conn_options.pOptions[0].Value.dwValue = PROXY_TYPE_DIRECT | PROXY_TYPE_AUTO_PROXY_URL;
         conn_options.pOptions[1].dwOption = INTERNET_PER_CONN_AUTOCONFIG_URL;
@@ -200,9 +220,9 @@ BOOL SetWindowsProxy(WCHAR* szProxy, const WCHAR* szProxyInterface)
     else
     {
         conn_options.dwSize = dwBufferSize;
-        conn_options.pszConnection = (WCHAR*)szProxyInterface;
+        conn_options.pszConnection = (WCHAR *)szProxyInterface;
         conn_options.dwOptionCount = 3;
-        conn_options.pOptions = (INTERNET_PER_CONN_OPTION*)malloc(sizeof(INTERNET_PER_CONN_OPTION)*conn_options.dwOptionCount);
+        conn_options.pOptions = (INTERNET_PER_CONN_OPTION *)malloc(sizeof(INTERNET_PER_CONN_OPTION) * conn_options.dwOptionCount);
         conn_options.pOptions[0].dwOption = INTERNET_PER_CONN_FLAGS;
         conn_options.pOptions[0].Value.dwValue = PROXY_TYPE_DIRECT | PROXY_TYPE_PROXY;
         conn_options.pOptions[1].dwOption = INTERNET_PER_CONN_PROXY_SERVER;
@@ -214,11 +234,11 @@ BOOL SetWindowsProxy(WCHAR* szProxy, const WCHAR* szProxyInterface)
     bReturn = InternetSetOption(NULL, INTERNET_OPTION_PER_CONNECTION_OPTION, &conn_options, dwBufferSize);
     free(conn_options.pOptions);
     InternetSetOption(NULL, INTERNET_OPTION_SETTINGS_CHANGED, NULL, 0);
-    InternetSetOption(NULL, INTERNET_OPTION_REFRESH , NULL, 0);
+    InternetSetOption(NULL, INTERNET_OPTION_REFRESH, NULL, 0);
     return bReturn;
 }
 
-BOOL SetWindowsProxyForAllRasConnections(WCHAR* szProxy)
+BOOL SetWindowsProxyForAllRasConnections(WCHAR *szProxy)
 {
     const char *szRasPbk[] = {
         "%APPDATA%\\Microsoft\\Network\\Connections\\Pbk\\rasphone.pbk",
@@ -229,23 +249,23 @@ BOOL SetWindowsProxyForAllRasConnections(WCHAR* szProxy)
     for (unsigned int i = 0; i < sizeof(szRasPbk) / sizeof(szRasPbk)[0]; i++)
     {
         char szPath[2048] = "";
-        if (ExpandEnvironmentStringsA(szRasPbk[i], szPath, sizeof(szPath)/sizeof(szPath[0])))
+        if (ExpandEnvironmentStringsA(szRasPbk[i], szPath, sizeof(szPath) / sizeof(szPath[0])))
         {
             char line[2048] = "";
             int length = 0;
-            FILE * fp = fopen(szPath, "r");
+            FILE *fp = fopen(szPath, "r");
             if (fp != NULL)
             {
                 while (!feof(fp))
                 {
-                    if (fgets(line, sizeof(line)/sizeof(line[0])-1, fp))
+                    if (fgets(line, sizeof(line) / sizeof(line[0]) - 1, fp))
                     {
                         length = strlen(line);
-                        if (length > 3 && line[0] == '[' && line[length-2] == ']')
+                        if (length > 3 && line[0] == '[' && line[length - 2] == ']')
                         {
-                            line[length-2] = 0;
+                            line[length - 2] = 0;
                             WCHAR szSection[64] = L"";
-                            MultiByteToWideChar(CP_UTF8, 0, line+1, -1, szSection, sizeof(szSection)/sizeof(szSection[0]));
+                            MultiByteToWideChar(CP_UTF8, 0, line + 1, -1, szSection, sizeof(szSection) / sizeof(szSection[0]));
                             SetWindowsProxy(szProxy, szSection);
                         }
                     }
@@ -269,20 +289,20 @@ BOOL ShowPopupMenu()
         for (int i = 0; lpProxyList[i]; i++)
         {
             UINT uFlags = wcscmp(lpProxyList[i], lpCurrentProxy) == 0 ? MF_STRING | MF_CHECKED : MF_STRING;
-            LPCTSTR lpText = wcslen(lpProxyList[i]) ? lpProxyList[i] : ( isZHCN ? L"\x7981\x7528\x4ee3\x7406" : L"<None>");
-            AppendMenu(hSubMenu, uFlags, WM_TASKBARNOTIFY_MENUITEM_PROXYLIST_BASE+i, lpText);
+            LPCTSTR lpText = wcslen(lpProxyList[i]) ? lpProxyList[i] : (isZHCN ? L"\x7981\x7528\x4ee3\x7406" : L"<None>");
+            AppendMenu(hSubMenu, uFlags, WM_TASKBARNOTIFY_MENUITEM_PROXYLIST_BASE + i, lpText);
         }
     }
 
     HMENU hMenu = CreatePopupMenu();
-    AppendMenu(hMenu, MF_STRING, WM_TASKBARNOTIFY_MENUITEM_SHOW, ( isZHCN ? L"\x663e\x793a" : L"Show") );
-    AppendMenu(hMenu, MF_STRING, WM_TASKBARNOTIFY_MENUITEM_HIDE, ( isZHCN ? L"\x9690\x85cf" : L"Hide") );
+    AppendMenu(hMenu, MF_STRING, WM_TASKBARNOTIFY_MENUITEM_SHOW, (isZHCN ? L"\x663e\x793a" : L"Show"));
+    AppendMenu(hMenu, MF_STRING, WM_TASKBARNOTIFY_MENUITEM_HIDE, (isZHCN ? L"\x9690\x85cf" : L"Hide"));
     if (hSubMenu != NULL)
     {
-        AppendMenu(hMenu, MF_STRING | MF_POPUP, (UINT_PTR)hSubMenu, ( isZHCN ? L"\x8bbe\x7f6e IE \x4ee3\x7406" : L"Set IE Proxy") );
+        AppendMenu(hMenu, MF_STRING | MF_POPUP, (UINT_PTR)hSubMenu, (isZHCN ? L"\x8bbe\x7f6e IE \x4ee3\x7406" : L"Set IE Proxy"));
     }
-    AppendMenu(hMenu, MF_STRING, WM_TASKBARNOTIFY_MENUITEM_RELOAD, ( isZHCN ? L"\x91cd\x65b0\x8f7d\x5165" : L"Reload") );
-    AppendMenu(hMenu, MF_STRING, WM_TASKBARNOTIFY_MENUITEM_EXIT,   ( isZHCN ? L"\x9000\x51fa" : L"Exit") );
+    AppendMenu(hMenu, MF_STRING, WM_TASKBARNOTIFY_MENUITEM_RELOAD, (isZHCN ? L"\x91cd\x65b0\x8f7d\x5165" : L"Reload"));
+    AppendMenu(hMenu, MF_STRING, WM_TASKBARNOTIFY_MENUITEM_EXIT, (isZHCN ? L"\x9000\x51fa" : L"Exit"));
     GetCursorPos(&pt);
     TrackPopupMenu(hMenu, TPM_LEFTALIGN, pt.x, pt.y, 0, hWnd, NULL);
     PostMessage(hWnd, WM_NULL, 0, 0);
@@ -294,14 +314,14 @@ BOOL ShowPopupMenu()
 
 BOOL ParseProxyList()
 {
-    WCHAR * tmpProxyString = _wcsdup(szProxyString);
-    ExpandEnvironmentStrings(tmpProxyString, szProxyString, sizeof(szProxyString)/sizeof(szProxyString[0]));
+    WCHAR *tmpProxyString = _wcsdup(szProxyString);
+    ExpandEnvironmentStrings(tmpProxyString, szProxyString, sizeof(szProxyString) / sizeof(szProxyString[0]));
     free(tmpProxyString);
     const WCHAR *sep = L"\n";
     WCHAR *pos = wcstok(szProxyString, sep);
     UINT i = 0;
     lpProxyList[i++] = (LPWSTR)L"";
-    while (pos && i < sizeof(lpProxyList)/sizeof(lpProxyList[0]))
+    while (pos && i < sizeof(lpProxyList) / sizeof(lpProxyList[0]))
     {
         lpProxyList[i++] = pos;
         pos = wcstok(NULL, sep);
@@ -313,24 +333,24 @@ BOOL ParseProxyList()
 
 BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
-   hWnd = CreateWindow(szWindowClass, szTitle, WS_OVERLAPPED|WS_SYSMENU,
-      NULL, NULL, CW_USEDEFAULT, CW_USEDEFAULT, NULL, NULL, hInstance, NULL);
+    hWnd = CreateWindow(szWindowClass, szTitle, WS_OVERLAPPED | WS_SYSMENU,
+                        NULL, NULL, CW_USEDEFAULT, CW_USEDEFAULT, NULL, NULL, hInstance, NULL);
 
-   if (!hWnd)
-   {
-      return FALSE;
-   }
+    if (!hWnd)
+    {
+        return FALSE;
+    }
 
-   ShowWindow(hWnd, nCmdShow);
-   UpdateWindow(hWnd);
+    ShowWindow(hWnd, nCmdShow);
+    UpdateWindow(hWnd);
 
-   return TRUE;
+    return TRUE;
 }
 
 BOOL CDCurrentDirectory()
 {
     WCHAR szPath[4096] = L"";
-    GetModuleFileName(NULL, szPath, sizeof(szPath)/sizeof(szPath[0])-1);
+    GetModuleFileName(NULL, szPath, sizeof(szPath) / sizeof(szPath[0]) - 1);
     *wcsrchr(szPath, L'\\') = 0;
     SetCurrentDirectory(szPath);
     SetEnvironmentVariableW(L"CWD", szPath);
@@ -339,34 +359,34 @@ BOOL CDCurrentDirectory()
 
 BOOL SetEenvironment()
 {
-    LoadString(hInst, IDS_CMDLINE, szCommandLine, sizeof(szCommandLine)/sizeof(szCommandLine[0])-1);
-    LoadString(hInst, IDS_ENVIRONMENT, szEnvironment, sizeof(szEnvironment)/sizeof(szEnvironment[0])-1);
-    LoadString(hInst, IDS_PROXYLIST, szProxyString, sizeof(szProxyString)/sizeof(szEnvironment[0])-1);
+    LoadString(hInst, IDS_CMDLINE, szCommandLine, sizeof(szCommandLine) / sizeof(szCommandLine[0]) - 1);
+    LoadString(hInst, IDS_ENVIRONMENT, szEnvironment, sizeof(szEnvironment) / sizeof(szEnvironment[0]) - 1);
+    LoadString(hInst, IDS_PROXYLIST, szProxyString, sizeof(szProxyString) / sizeof(szEnvironment[0]) - 1);
 
     const WCHAR *sep = L"\n";
     WCHAR *pos = NULL;
     WCHAR *token = wcstok(szEnvironment, sep);
-    while(token != NULL)
+    while (token != NULL)
     {
         if ((pos = wcschr(token, L'=')) != NULL)
         {
             *pos = 0;
-            SetEnvironmentVariableW(token, pos+1);
+            SetEnvironmentVariableW(token, pos + 1);
             //wprintf(L"[%s] = [%s]\n", token, pos+1);
         }
         token = wcstok(NULL, sep);
     }
 
-    GetEnvironmentVariableW(L"TASKBAR_TITLE", szTitle, sizeof(szTitle)/sizeof(szTitle[0])-1);
-    GetEnvironmentVariableW(L"TASKBAR_TOOLTIP", szTooltip, sizeof(szTooltip)/sizeof(szTooltip[0])-1);
-    GetEnvironmentVariableW(L"TASKBAR_BALLOON", szBalloon, sizeof(szBalloon)/sizeof(szBalloon[0])-1);
+    GetEnvironmentVariableW(L"TASKBAR_TITLE", szTitle, sizeof(szTitle) / sizeof(szTitle[0]) - 1);
+    GetEnvironmentVariableW(L"TASKBAR_TOOLTIP", szTooltip, sizeof(szTooltip) / sizeof(szTooltip[0]) - 1);
+    GetEnvironmentVariableW(L"TASKBAR_BALLOON", szBalloon, sizeof(szBalloon) / sizeof(szBalloon[0]) - 1);
 
     return TRUE;
 }
 
 BOOL WINAPI ConsoleHandler(DWORD CEvent)
 {
-    switch(CEvent)
+    switch (CEvent)
     {
     case CTRL_LOGOFF_EVENT:
     case CTRL_SHUTDOWN_EVENT:
@@ -382,12 +402,12 @@ BOOL CreateConsole()
     WCHAR szVisible[BUFSIZ] = L"";
 
     AllocConsole();
-    _wfreopen(L"CONIN$",  L"r+t", stdin);
+    _wfreopen(L"CONIN$", L"r+t", stdin);
     _wfreopen(L"CONOUT$", L"w+t", stdout);
 
     hConsole = GetConsoleWindow();
 
-    if (GetEnvironmentVariableW(L"TASKBAR_VISIBLE", szVisible, BUFSIZ-1) && szVisible[0] == L'0')
+    if (GetEnvironmentVariableW(L"TASKBAR_VISIBLE", szVisible, BUFSIZ - 1) && szVisible[0] == L'0')
     {
         ShowWindow(hConsole, SW_HIDE);
     }
@@ -396,7 +416,7 @@ BOOL CreateConsole()
         SetForegroundWindow(hConsole);
     }
 
-    if (SetConsoleCtrlHandler((PHANDLER_ROUTINE)ConsoleHandler,TRUE)==FALSE)
+    if (SetConsoleCtrlHandler((PHANDLER_ROUTINE)ConsoleHandler, TRUE) == FALSE)
     {
         printf("Unable to install handler!\n");
         return FALSE;
@@ -422,12 +442,12 @@ BOOL CreateConsole()
 BOOL ExecCmdline()
 {
     SetWindowText(hConsole, szTitle);
-    STARTUPINFO si = { sizeof(si) };
+    STARTUPINFO si = {sizeof(si)};
     PROCESS_INFORMATION pi;
     si.dwFlags = STARTF_USESHOWWINDOW;
     si.wShowWindow = TRUE;
     BOOL bRet = CreateProcess(NULL, szCommandLine, NULL, NULL, FALSE, NULL, NULL, NULL, &si, &pi);
-    if(bRet)
+    if (bRet)
     {
         dwChildrenPid = MyGetProcessId(pi.hProcess);
     }
@@ -460,7 +480,7 @@ BOOL TryDeleteUpdateFiles()
         {
             break;
         }
-    } while(TRUE);
+    } while (TRUE);
     FindClose(hFind);
 
     return TRUE;
@@ -492,66 +512,66 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     UINT nID;
     switch (message)
     {
-        case WM_TASKBARNOTIFY:
-            if (lParam == WM_LBUTTONUP)
-            {
-                ShowWindow(hConsole, !IsWindowVisible(hConsole));
-                SetForegroundWindow(hConsole);
-            }
-            else if (lParam == WM_RBUTTONUP)
-            {
-                SetForegroundWindow(hWnd);
-                ShowPopupMenu();
-            }
-            break;
-        case WM_COMMAND:
-            nID = LOWORD(wParam);
-            if (nID == WM_TASKBARNOTIFY_MENUITEM_SHOW)
-            {
-                ShowWindow(hConsole, SW_SHOW);
-                SetForegroundWindow(hConsole);
-            }
-            else if (nID == WM_TASKBARNOTIFY_MENUITEM_HIDE)
-            {
-                ShowWindow(hConsole, SW_HIDE);
-            }
-            if (nID == WM_TASKBARNOTIFY_MENUITEM_RELOAD)
-            {
-                ReloadCmdline();
-            }
-            else if (nID == WM_TASKBARNOTIFY_MENUITEM_ABOUT)
-            {
-                MessageBoxW(hWnd, szTooltip, szWindowClass, 0);
-            }
-            else if (nID == WM_TASKBARNOTIFY_MENUITEM_EXIT)
-            {
-                DeleteTrayIcon();
-                PostMessage(hConsole, WM_CLOSE, 0, 0);
-            }
-            else if (WM_TASKBARNOTIFY_MENUITEM_PROXYLIST_BASE <= nID && nID <= WM_TASKBARNOTIFY_MENUITEM_PROXYLIST_BASE+sizeof(lpProxyList)/sizeof(lpProxyList[0]))
-            {
-                WCHAR *szProxy = lpProxyList[nID-WM_TASKBARNOTIFY_MENUITEM_PROXYLIST_BASE];
-                SetWindowsProxy(szProxy, NULL);
-                SetWindowsProxyForAllRasConnections(szProxy);
-                ShowTrayIcon(szProxy, NIM_MODIFY);
-            }
-            break;
-        case WM_CLOSE:
+    case WM_TASKBARNOTIFY:
+        if (lParam == WM_LBUTTONUP)
+        {
+            ShowWindow(hConsole, !IsWindowVisible(hConsole));
+            SetForegroundWindow(hConsole);
+        }
+        else if (lParam == WM_RBUTTONUP)
+        {
+            SetForegroundWindow(hWnd);
+            ShowPopupMenu();
+        }
+        break;
+    case WM_COMMAND:
+        nID = LOWORD(wParam);
+        if (nID == WM_TASKBARNOTIFY_MENUITEM_SHOW)
+        {
+            ShowWindow(hConsole, SW_SHOW);
+            SetForegroundWindow(hConsole);
+        }
+        else if (nID == WM_TASKBARNOTIFY_MENUITEM_HIDE)
+        {
+            ShowWindow(hConsole, SW_HIDE);
+        }
+        if (nID == WM_TASKBARNOTIFY_MENUITEM_RELOAD)
+        {
+            ReloadCmdline();
+        }
+        else if (nID == WM_TASKBARNOTIFY_MENUITEM_ABOUT)
+        {
+            MessageBoxW(hWnd, szTooltip, szWindowClass, 0);
+        }
+        else if (nID == WM_TASKBARNOTIFY_MENUITEM_EXIT)
+        {
             DeleteTrayIcon();
-            PostQuitMessage(0);
+            PostMessage(hConsole, WM_CLOSE, 0, 0);
+        }
+        else if (WM_TASKBARNOTIFY_MENUITEM_PROXYLIST_BASE <= nID && nID <= WM_TASKBARNOTIFY_MENUITEM_PROXYLIST_BASE + sizeof(lpProxyList) / sizeof(lpProxyList[0]))
+        {
+            WCHAR *szProxy = lpProxyList[nID - WM_TASKBARNOTIFY_MENUITEM_PROXYLIST_BASE];
+            SetWindowsProxy(szProxy, NULL);
+            SetWindowsProxyForAllRasConnections(szProxy);
+            ShowTrayIcon(szProxy, NIM_MODIFY);
+        }
+        break;
+    case WM_CLOSE:
+        DeleteTrayIcon();
+        PostQuitMessage(0);
+        break;
+    case WM_DESTROY:
+        PostQuitMessage(0);
+        break;
+    default:
+        if (message == WM_TASKBARCREATED)
+        {
+            ShowTrayIcon(NULL, NIM_ADD);
             break;
-        case WM_DESTROY:
-            PostQuitMessage(0);
-            break;
-        default:
-            if (message == WM_TASKBARCREATED)
-            {
-                ShowTrayIcon(NULL, NIM_ADD);
-                break;
-            }
-            return DefWindowProc(hWnd, message, wParam, lParam);
-   }
-   return 0;
+        }
+        return DefWindowProc(hWnd, message, wParam, lParam);
+    }
+    return 0;
 }
 
 ATOM MyRegisterClass(HINSTANCE hInstance)
@@ -560,17 +580,17 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
 
     wcex.cbSize = sizeof(WNDCLASSEX);
 
-    wcex.style          = CS_HREDRAW | CS_VREDRAW;
-    wcex.lpfnWndProc    = (WNDPROC)WndProc;
-    wcex.cbClsExtra     = 0;
-    wcex.cbWndExtra     = 0;
-    wcex.hInstance      = hInstance;
-    wcex.hIcon          = LoadIcon(hInstance, (LPCTSTR)IDI_TASKBAR);
-    wcex.hCursor        = LoadCursor(NULL, IDC_ARROW);
-    wcex.hbrBackground  = (HBRUSH)(COLOR_WINDOW+1);
-    wcex.lpszMenuName   = (LPCTSTR)NULL;
-    wcex.lpszClassName  = szWindowClass;
-    wcex.hIconSm        = LoadIcon(wcex.hInstance, (LPCTSTR)IDI_SMALL);
+    wcex.style = CS_HREDRAW | CS_VREDRAW;
+    wcex.lpfnWndProc = (WNDPROC)WndProc;
+    wcex.cbClsExtra = 0;
+    wcex.cbWndExtra = 0;
+    wcex.hInstance = hInstance;
+    wcex.hIcon = LoadIcon(hInstance, (LPCTSTR)IDI_TASKBAR);
+    wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
+    wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+    wcex.lpszMenuName = (LPCTSTR)NULL;
+    wcex.lpszClassName = szWindowClass;
+    wcex.hIconSm = LoadIcon(wcex.hInstance, (LPCTSTR)IDI_SMALL);
 
     return RegisterClassEx(&wcex);
 }
@@ -583,7 +603,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     SetEenvironment();
     ParseProxyList();
     MyRegisterClass(hInstance);
-    if (!InitInstance (hInstance, SW_HIDE))
+    if (!InitInstance(hInstance, SW_HIDE))
     {
         return FALSE;
     }

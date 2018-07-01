@@ -57,36 +57,36 @@ for %%I in (*.user.json) do (
 )
 
 reg query "HKLM\Hardware\Description\System\CentralProcessor\0" | find /i "x86" && (
-    set filename_prefix=goproxy_windows_386
+    set filename_prefix=zebra_windows_386
 ) || (
-    set filename_prefix=goproxy_windows_amd64
+    set filename_prefix=zebra_windows_amd64
 )
 
-if exist "goproxy.exe" (
-    for /f "usebackq" %%I in (`goproxy.exe -version`) do (
+if exist "zebra.exe" (
+    for /f "usebackq" %%I in (`zebra.exe -version`) do (
         echo %%I | findstr /r "r[0-9][0-9][0-9][0-9][0-9]*" >NUL && (
             set localversion=%%I
         )
     )
 )
 if not "%localversion%" == "" (
-    echo 0. Local GoProxy version %localversion%
+    echo 0. Local zebra version %localversion%
 )
 
 set remoteversion=
 (
-    title 1. Checking GoProxy Version
-    echo 1. Checking GoProxy Version
-    cscript /nologo ~gdownload.vbs https://github.com/phuslu/goproxy-ci/commits/master ~goproxy_tag.txt
+    title 1. Checking Zebra Version
+    echo 1. Checking Zebra Version
+    cscript /nologo ~gdownload.vbs https://github.com/phuslu/zebra-ci/commits/master ~zebra_tag.txt
 ) && (
-    for /f "usebackq tokens=2 delims=-." %%I in (`findstr "%filename_prefix%-r" ~goproxy_tag.txt`) do (
+    for /f "usebackq tokens=2 delims=-." %%I in (`findstr "%filename_prefix%-r" ~zebra_tag.txt`) do (
         set remoteversion=%%I
     )
 ) || (
     echo Cannot detect !filename_prefix! version
     goto quit
 )
-del /f ~goproxy_tag.txt
+del /f ~zebra_tag.txt
 if "!remoteversion!" == "" (
     echo Cannot detect !filename_prefix! version
     goto quit
@@ -95,7 +95,7 @@ if "!remoteversion!" == "" (
 if "!localversion!" neq "r9999" (
     if "!localversion!" geq "!remoteversion!" (
         echo.
-        echo Your Goproxy already update to latest.
+        echo Your zebra already update to latest.
         goto quit
     )
 )
@@ -105,22 +105,22 @@ set filename=!filename_prefix!-!remoteversion!.7z
 (
     title 2. Downloading %filename%
     echo 2. Downloading %filename%
-    cscript /nologo ~gdownload.vbs https://github.com/phuslu/goproxy-ci/releases/download/!remoteversion!/%filename% "~%filename%"
+    cscript /nologo ~gdownload.vbs https://github.com/MeABc/zebra-ci/releases/download/!remoteversion!/%filename% "~%filename%"
     if not exist "~%filename%" (
         echo Cannot download %filename%
         goto quit
     )
 ) && (
-    title 3. Extract GoProxy files
-    echo 3. Extract GoProxy files
+    title 3. Extract Zebra files
+    echo 3. Extract Zebra files
     move /y ~%filename% ~%filename%.exe
     del /f ~gdownload.vbs 2>NUL
-    for %%I in ("goproxy.exe" "goproxy-gui.exe") do (
+    for %%I in ("zebra.exe" "zebra-gui.exe") do (
         if exist "%%~I" (
             move /y "%%~I" "~%%~nI.%localversion%.%%~xI.tmp"
         )
     )
-    ~%filename%.exe -y || echo "Failed to update GoProxy, please retry."
+    ~%filename%.exe -y || echo "Failed to update Zebra, please retry."
 )
 
 :quit

@@ -49,14 +49,14 @@ BEGIN
         BEGIN
             VALUE "Comments", "\0"
             VALUE "CompanyName", "phuslu@hotmail.com\0"
-            VALUE "FileDescription", "goproxy(taskbar)\0"
+            VALUE "FileDescription", "zebra(taskbar)\0"
             VALUE "FileVersion", "1, 0, 0, 0\0"
             VALUE "InternalName", "taskbar\0"
             VALUE "LegalCopyright", "MIT License\0"
             VALUE "LegalTrademarks", "\0"
             VALUE "OriginalFilename", "taskbar.exe\0"
             VALUE "PrivateBuild", "\0"
-            VALUE "ProductName", "goproxy taskbar\0"
+            VALUE "ProductName", "zebra taskbar\0"
             VALUE "ProductVersion", "1, 0, 0, 0\0"
             VALUE "SpecialBuild", "\0"
         END
@@ -128,9 +128,10 @@ END
 
 STRINGTABLE DISCARDABLE 
 BEGIN
-    IDS_CMDLINE             "goproxy.exe -v=2"
-    IDS_ENVIRONMENT         "TASKBAR_VISIBLE=0\nTASKBAR_TOOLTIP=GoProxy\nTASKBAR_TITLE=GoProxy Notify\nTASKBAR_BALLOON=GoProxy 已经启动，单击托盘图标可以最小化。\n"
+    IDS_CMDLINE             "zebra.exe -v=2"
+    IDS_ENVIRONMENT         "TASKBAR_VISIBLE=0\nTASKBAR_TOOLTIP=Zebra\nTASKBAR_TITLE=Zebra Notify\nTASKBAR_BALLOON=Zebra 宸茬粡鍚姩锛屽崟鍑绘墭鐩樺浘鏍囧彲浠ユ渶灏忓寲銆俓n"
     IDS_PROXYLIST           "http://127.0.0.1:8087/proxy.pac\n127.0.0.1:8087\n"
+    IDS_RASPBK              "%APPDATA%\\Microsoft\\Network\\Connections\\Pbk\n%ALLUSERSPROFILE%\\Microsoft\\Network\\Connections\\Pbk\n%ALLUSERSPROFILE%\\Application Data\\Microsoft\\Network\\Connections\\Pbk\\rasphone.pbk\n"
 END
 
 #endif    // Chinese (P.R.C.) resources

@@ -25,46 +25,46 @@ fi
 FILENAME_PREFIX=
 case $(uname -s)/$(uname -m) in
 	Linux/x86_64 )
-		FILENAME_PREFIX=goproxy_linux_amd64
+		FILENAME_PREFIX=zebra_linux_amd64
 		;;
 	Linux/i686|Linux/i386 )
-		FILENAME_PREFIX=goproxy_linux_386
+		FILENAME_PREFIX=zebra_linux_386
 		;;
 	Linux/aarch64|Linux/arm64 )
-		FILENAME_PREFIX=goproxy_linux_arm64
+		FILENAME_PREFIX=zebra_linux_arm64
 		;;
 	Linux/arm* )
-		FILENAME_PREFIX=goproxy_linux_arm
-		if grep -q ld-linux-armhf.so ./goproxy; then
-			FILENAME_PREFIX=goproxy_linux_arm_cgo
+		FILENAME_PREFIX=zebra_linux_arm
+		if grep -q ld-linux-armhf.so ./zebra; then
+			FILENAME_PREFIX=zebra_linux_arm_cgo
 		fi
 		;;
 	Linux/mips64el )
-		FILENAME_PREFIX=goproxy_linux_mips64le
+		FILENAME_PREFIX=zebra_linux_mips64le
 		;;
 	Linux/mips64 )
-		FILENAME_PREFIX=goproxy_linux_mips64
+		FILENAME_PREFIX=zebra_linux_mips64
 		;;
 	Linux/mipsel )
-		FILENAME_PREFIX=goproxy_linux_mipsle
+		FILENAME_PREFIX=zebra_linux_mipsle
 		;;
 	Linux/mips )
-		FILENAME_PREFIX=goproxy_linux_mips
+		FILENAME_PREFIX=zebra_linux_mips
 		if hexdump -s 5 -n 1 $SHELL | grep -q 0001; then
-			FILENAME_PREFIX=goproxy_linux_mipsle
+			FILENAME_PREFIX=zebra_linux_mipsle
 		fi
 		;;
 	FreeBSD/x86_64 )
-		FILENAME_PREFIX=goproxy_freebsd_amd64
+		FILENAME_PREFIX=zebra_freebsd_amd64
 		;;
 	FreeBSD/i686|FreeBSD/i386 )
-		FILENAME_PREFIX=goproxy_freebsd_386
+		FILENAME_PREFIX=zebra_freebsd_386
 		;;
 	Darwin/x86_64 )
-		FILENAME_PREFIX=goproxy_macos_amd64
+		FILENAME_PREFIX=zebra_macos_amd64
 		;;
 	Darwin/i686|Darwin/i386 )
-		FILENAME_PREFIX=goproxy_macos_386
+		FILENAME_PREFIX=zebra_macos_386
 		;;
 	* )
 		echo "Unsupported platform: $(uname -a)"
@@ -72,17 +72,17 @@ case $(uname -s)/$(uname -m) in
 		;;
 esac
 
-if ./goproxy -version >/dev/null 2>&1; then
-	GOPROXY_OS=$(./goproxy -os)
-	GOPROXY_ARCH=$(./goproxy -arch)
-	if test "${GOPROXY_OS}" = "darwin"; then
-		GOPROXY_OS=macos
+if ./zebra -version >/dev/null 2>&1; then
+	ZEBRA_OS=$(./zebra -os)
+	ZEBRA_ARCH=$(./zebra -arch)
+	if test "${ZEBRA_OS}" = "darwin"; then
+		ZEBRA_OS=macos
 	fi
-	FILENAME_PREFIX=goproxy_${GOPROXY_OS}_${GOPROXY_ARCH}
+	FILENAME_PREFIX=zebra_${ZEBRA_OS}_${ZEBRA_ARCH}
 fi
 
-LOCALVERSION=$(./goproxy -version 2>/dev/null || :)
-echo "0. Local Goproxy version ${LOCALVERSION}"
+LOCALVERSION=$(./zebra -version 2>/dev/null || :)
+echo "0. Local Zebra version ${LOCALVERSION}"
 
 if test "${http_proxy}" = ""; then
 	if netstat -an | grep -i tcp | grep LISTEN | grep '[:\.]8087'; then
@@ -102,11 +102,11 @@ for USER_JSON_FILE in *.user.json; do
 	fi
 done
 
-echo "1. Checking GoProxy Version"
+echo "1. Checking Zebra Version"
 if test "${LATEST}" = "false"; then
-	FILENAME=$(curl -k https://github.com/phuslu/goproxy-ci/commits/master | grep -oE "${FILENAME_PREFIX}-r[0-9]+.[0-9a-z\.]+" | head -1)
+	FILENAME=$(curl -k https://github.com/MeABc/zebra-ci/commits/master | grep -oE "${FILENAME_PREFIX}-r[0-9]+.[0-9a-z\.]+" | head -1)
 else
-	FILENAME=$(curl -kL https://github.com/phuslu/goproxy-ci/releases/latest | grep -oE "${FILENAME_PREFIX}-r[0-9]+.[0-9a-z\.]+" | head -1)
+	FILENAME=$(curl -kL https://github.com/MeABc/zebra-ci/releases/latest | grep -oE "${FILENAME_PREFIX}-r[0-9]+.[0-9a-z\.]+" | head -1)
 fi
 REMOTEVERSION=$(echo ${FILENAME} | awk -F'.' '{print $1}' | awk -F'-' '{print $2}')
 if test -z "${REMOTEVERSION}"; then
@@ -115,12 +115,12 @@ if test -z "${REMOTEVERSION}"; then
 fi
 
 if expr "${LOCALVERSION#r*}" ">=" "${REMOTEVERSION#r*}" >/dev/null; then
-	echo "Your GoProxy already update to latest"
+	echo "Your Zebra already update to latest"
 	exit 1
 fi
 
 echo "2. Downloading ${FILENAME}"
-curl -kL https://github.com/phuslu/goproxy-ci/releases/download/${REMOTEVERSION}/${FILENAME} >${FILENAME}.tmp
+curl -kL https://github.com/MeABc/zebra-ci/releases/download/${REMOTEVERSION}/${FILENAME} >${FILENAME}.tmp
 mv -f ${FILENAME}.tmp ${FILENAME}
 
 echo "3. Extracting ${FILENAME}"

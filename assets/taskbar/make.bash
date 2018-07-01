@@ -22,7 +22,7 @@ build () {
     mkdir -p ${BUILDROOT}
     ${WINDRES} taskbar.rc -O coff -o ${BUILDROOT}/taskbar.res
     ${CXX} -Wall -Os -s -Wl,--subsystem,windows -o ${BUILDROOT}/taskbar.o -c taskbar.c
-    ${CXX} -static -Os -s -o ${BUILDROOT}/goproxy-gui.exe ${BUILDROOT}/taskbar.o ${BUILDROOT}/taskbar.res -lwininet
+    ${CXX} -static -Os -s -o ${BUILDROOT}/zebra-gui.exe ${BUILDROOT}/taskbar.o ${BUILDROOT}/taskbar.res -lwininet
 }
 
 clean () {

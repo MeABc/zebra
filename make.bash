@@ -21,48 +21,49 @@ OBJECTDIR=${BUILDROOT}/obj
 DISTDIR=${BUILDROOT}/dist
 
 if [ "${GOOS}" == "windows" ]; then
-    GOPROXY_EXE="${PACKAGE}.exe"
-    GOPROXY_STAGEDIR="${STAGEDIR}"
-    GOPROXY_DISTCMD="7za a -y -mx=9 -m0=lzma -mfb=128 -md=64m -ms=on"
-    GOPROXY_DISTEXT=".7z"
+    ZEBRA_EXE="${PACKAGE}.exe"
+    ZEBRA_STAGEDIR="${STAGEDIR}"
+    ZEBRA_DISTCMD="7za a -y -mx=9 -m0=lzma -mfb=128 -md=64m -ms=on"
+    ZEBRA_DISTEXT=".7z"
 elif [ "${GOOS}" == "darwin" ]; then
-    GOPROXY_EXE="${PACKAGE}"
-    GOPROXY_STAGEDIR="${STAGEDIR}"
-    GOPROXY_DISTCMD="env BZIP=-9 tar cvjpf"
-    GOPROXY_DISTEXT=".tar.bz2"
+    ZEBRA_EXE="${PACKAGE}"
+    ZEBRA_STAGEDIR="${STAGEDIR}"
+    ZEBRA_DISTCMD="env BZIP=-9 tar cvjpf"
+    ZEBRA_DISTEXT=".tar.bz2"
 elif [ "${GOARCH:0:3}" == "arm" ]; then
-    GOPROXY_EXE="${PACKAGE}"
-    GOPROXY_STAGEDIR="${STAGEDIR}"
-    GOPROXY_DISTCMD="env BZIP=-9 tar cvjpf"
-    GOPROXY_DISTEXT=".tar.bz2"
+    ZEBRA_EXE="${PACKAGE}"
+    ZEBRA_STAGEDIR="${STAGEDIR}"
+    ZEBRA_DISTCMD="env BZIP=-9 tar cvjpf"
+    ZEBRA_DISTEXT=".tar.bz2"
 elif [ "${GOARCH:0:4}" == "mips" ]; then
-    GOPROXY_EXE="${PACKAGE}"
-    GOPROXY_STAGEDIR="${STAGEDIR}"
-    GOPROXY_DISTCMD="env GZIP=-9 tar cvzpf"
-    GOPROXY_DISTEXT=".tar.gz"
+    ZEBRA_EXE="${PACKAGE}"
+    ZEBRA_STAGEDIR="${STAGEDIR}"
+    ZEBRA_DISTCMD="env GZIP=-9 tar cvzpf"
+    ZEBRA_DISTEXT=".tar.gz"
 else
-    GOPROXY_EXE="${PACKAGE}"
-    GOPROXY_STAGEDIR="${STAGEDIR}/${PACKAGE}"
-    GOPROXY_DISTCMD="env XZ_OPT=-9 tar cvJpf"
-    GOPROXY_DISTEXT=".tar.xz"
+    ZEBRA_EXE="${PACKAGE}"
+    ZEBRA_STAGEDIR="${STAGEDIR}/${PACKAGE}"
+    ZEBRA_DISTCMD="env XZ_OPT=-9 tar cvJpf"
+    ZEBRA_DISTEXT=".tar.xz"
 fi
 
-GOPROXY_DIST=${DISTDIR}/${PACKAGE}_${GOOS}_${GOARCH}-r${REVSION}${GOPROXY_DISTEXT}
+ZEBRA_DIST=${DISTDIR}/${PACKAGE}_${GOOS}_${GOARCH}-r${REVSION}${ZEBRA_DISTEXT}
 if [ "${CGO_ENABLED}" = "1" ]; then
-    GOPROXY_DIST=${DISTDIR}/${PACKAGE}_${GOOS}_${GOARCH}_cgo-r${REVSION}${GOPROXY_DISTEXT}
+    ZEBRA_DIST=${DISTDIR}/${PACKAGE}_${GOOS}_${GOARCH}_cgo-r${REVSION}${ZEBRA_DISTEXT}
 fi
 
-GOPROXY_GUI_EXE=${REPO}/assets/taskbar/${GOARCH}/goproxy-gui.exe
-if [ ! -f "${GOPROXY_GUI_EXE}" ]; then
-    GOPROXY_GUI_EXE=${REPO}/assets/packaging/goproxy-gui.exe
+ZEBRA_GUI_EXE=${REPO}/assets/taskbar/${GOARCH}/zebra-gui.exe
+if [ ! -f "${ZEBRA_GUI_EXE}" ]; then
+    ZEBRA_GUI_EXE=${REPO}/assets/packaging/zebra-gui.exe
 fi
 
-OBJECTS=${OBJECTDIR}/${GOPROXY_EXE}
+OBJECTS=${OBJECTDIR}/${ZEBRA_EXE}
 
 SOURCES="${REPO}/README.md \
         ${REPO}/assets/packaging/gae.user.json.example \
         ${REPO}/httpproxy/filters/auth/auth.json \
-        ${REPO}/httpproxy/filters/autoproxy/17monipdb.dat \
+        ${REPO}/httpproxy/filters/autoproxy/china_domain_list.txt \
+        ${REPO}/httpproxy/filters/autoproxy/china_ip_list.txt \
         ${REPO}/httpproxy/filters/autoproxy/autoproxy.json \
         ${REPO}/httpproxy/filters/autoproxy/gfwlist.txt \
         ${REPO}/httpproxy/filters/autoproxy/ip.html \
@@ -76,31 +77,31 @@ SOURCES="${REPO}/README.md \
 
 if [ "${GOOS}" = "windows" ]; then
     SOURCES="${SOURCES} \
-             ${GOPROXY_GUI_EXE} \
+             ${ZEBRA_GUI_EXE} \
              ${REPO}/assets/packaging/addto-startup.vbs \
-             ${REPO}/assets/packaging/get-latest-goproxy.cmd"
+             ${REPO}/assets/packaging/get-latest-zebra.cmd"
 elif [ "${GOOS}_${GOARCH}_${CGO_ENABLED}" = "linux_arm_0" ]; then
     SOURCES="${SOURCES} \
-             ${REPO}/assets/packaging/goproxy.sh \
-             ${REPO}/assets/packaging/get-latest-goproxy.sh"
+             ${REPO}/assets/packaging/zebra.sh \
+             ${REPO}/assets/packaging/get-latest-zebra.sh"
     GOARM=${GORAM:-5}
 elif [ "${GOOS}_${GOARCH}_${CGO_ENABLED}" = "linux_arm_1" ]; then
     SOURCES="${SOURCES} \
-             ${REPO}/assets/packaging/goproxy.sh \
-             ${REPO}/assets/packaging/get-latest-goproxy.sh"
+             ${REPO}/assets/packaging/zebra.sh \
+             ${REPO}/assets/packaging/get-latest-zebra.sh"
     CC=${ARM_CC:-arm-linux-gnueabihf-gcc}
     GOARM=${GORAM:-5}
 elif [ "${GOOS}" = "darwin" ]; then
     SOURCES="${SOURCES} \
-             ${REPO}/assets/packaging/goproxy-macos.command \
-             ${REPO}/assets/packaging/get-latest-goproxy.sh"
+             ${REPO}/assets/packaging/zebra-macos.command \
+             ${REPO}/assets/packaging/get-latest-zebra.sh"
 else
     SOURCES="${SOURCES} \
-             ${REPO}/assets/packaging/get-latest-goproxy.sh \
-             ${REPO}/assets/packaging/goproxy-gtk.desktop \
-             ${REPO}/assets/packaging/goproxy-gtk.png \
-             ${REPO}/assets/packaging/goproxy-gtk.py \
-             ${REPO}/assets/packaging/goproxy.sh"
+             ${REPO}/assets/packaging/get-latest-zebra.sh \
+             ${REPO}/assets/packaging/zebra-gtk.desktop \
+             ${REPO}/assets/packaging/zebra-gtk.png \
+             ${REPO}/assets/packaging/zebra-gtk.py \
+             ${REPO}/assets/packaging/zebra.sh"
 fi
 
 build () {
@@ -110,20 +111,20 @@ build () {
         GOARM=${GOARM} \
         CGO_ENABLED=${CGO_ENABLED} \
         CC=${CC} \
-    go build -v -ldflags="${LDFLAGS}" -o ${OBJECTDIR}/${GOPROXY_EXE} .
+    go build -v -ldflags="${LDFLAGS}" -o ${OBJECTDIR}/${ZEBRA_EXE} .
 }
 
 dist () {
-    mkdir -p ${DISTDIR} ${STAGEDIR} ${GOPROXY_STAGEDIR}
-    cp ${OBJECTS} ${SOURCES} ${GOPROXY_STAGEDIR}
+    mkdir -p ${DISTDIR} ${STAGEDIR} ${ZEBRA_STAGEDIR}
+    cp ${OBJECTS} ${SOURCES} ${ZEBRA_STAGEDIR}
 
     pushd ${STAGEDIR}
-    ${GOPROXY_DISTCMD} ${GOPROXY_DIST} *
+    ${ZEBRA_DISTCMD} ${ZEBRA_DIST} *
     popd
 }
 
 check () {
-    GOPROXY_WAIT_SECONDS=0 ${GOPROXY_STAGEDIR}/${GOPROXY_EXE}
+    ZEBRA_WAIT_SECONDS=0 ${ZEBRA_STAGEDIR}/${ZEBRA_EXE}
 }
 
 clean () {

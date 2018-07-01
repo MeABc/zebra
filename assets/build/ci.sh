@@ -1,12 +1,12 @@
 #!/bin/bash -xe
 
-export GITHUB_USER=${GITHUB_USER:-phuslu}
-export GITHUB_EMAIL=${GITHUB_EMAIL:-phuslu@hotmail.com}
-export GITHUB_REPO=${GITHUB_REPO:-goproxy}
-export GITHUB_CI_REPO=${GITHUB_CI_REPO:-goproxy-ci}
+export GITHUB_USER=${GITHUB_USER:-MeABc}
+export GITHUB_EMAIL=${GITHUB_EMAIL:-MeABc@noreply.github.com}
+export GITHUB_REPO=${GITHUB_REPO:-zebra}
+export GITHUB_CI_REPO=${GITHUB_CI_REPO:-zebra-ci}
 export GITHUB_COMMIT_ID=${TRAVIS_COMMIT:-${COMMIT_ID:-master}}
-export SOURCEFORGE_USER=${SOURCEFORGE_USER:-${GITHUB_USER}}
-export SOURCEFORGE_REPO=${SOURCEFORGE_REPO:-${GITHUB_REPO}}
+# export SOURCEFORGE_USER=${SOURCEFORGE_USER:-${GITHUB_USER}}
+# export SOURCEFORGE_REPO=${SOURCEFORGE_REPO:-${GITHUB_REPO}}
 export WORKING_DIR=$(pwd)/${GITHUB_REPO}.$(date "+%y%m%d").${RANDOM:-$$}
 export GOROOT_BOOTSTRAP=${WORKING_DIR}/goroot_bootstrap
 export GOROOT=${WORKING_DIR}/go
@@ -18,9 +18,9 @@ if [ ${#GITHUB_TOKEN} -eq 0 ]; then
 	echo "WARNING: \$GITHUB_TOKEN is not set!"
 fi
 
-if [ ${#SOURCEFORGE_PASSWORD} -eq 0 ]; then
-	echo "WARNING: \$SOURCEFORGE_PASSWORD is not set!"
-fi
+# if [ ${#SOURCEFORGE_PASSWORD} -eq 0 ]; then
+# 	echo "WARNING: \$SOURCEFORGE_PASSWORD is not set!"
+# fi
 
 for CMD in curl awk git tar bzip2 xz 7za gcc make sha1sum timeout
 do
@@ -63,14 +63,15 @@ function build_go() {
 	curl -k https://storage.googleapis.com/golang/go1.4.3.linux-amd64.tar.gz | tar xz
 	mv go goroot_bootstrap
 
-	git clone --branch master https://github.com/phuslu/go
+	git clone --branch master https://github.com/MeABc/go
 	cd go/src
-	if [ "${GOTIP_FOLLOW}" = "true" ]; then
-		git remote add -f upstream https://github.com/golang/go
-		git rebase upstream/master
-	fi
+	# if [ "${GOTIP_FOLLOW}" = "true" ]; then
+	# 	git remote add -f upstream https://github.com/golang/go
+	# 	git rebase upstream/master
+	# fi
 	bash ./make.bash
-	grep -q 'machine github.com' ~/.netrc && git push -f origin master
+	# grep -q 'machine github.com' ~/.netrc && git push -f origin master
+	grep -q 'machine github.com' ~/.netrc 
 
 	set +ex
 	echo '================================================================================'
@@ -81,7 +82,8 @@ function build_go() {
 	go version
 	go env
 	echo
-	env | grep -v GITHUB_TOKEN | grep -v SOURCEFORGE_PASSWORD
+	# env | grep -v GITHUB_TOKEN | grep -v SOURCEFORGE_PASSWORD
+	env | grep -v GITHUB_TOKEN
 	echo '================================================================================'
 	set -ex
 
@@ -107,12 +109,13 @@ function rebuild_go_with_tls13() {
 function build_glog() {
 	pushd ${WORKING_DIR}
 
-	git clone https://github.com/phuslu/glog $GOPATH/src/github.com/phuslu/glog
-	cd $GOPATH/src/github.com/phuslu/glog
-	git remote add -f upstream https://github.com/golang/glog
-	git rebase upstream/master
+	git clone https://github.com/MeABc/glog $GOPATH/src/github.com/MeABc/glog
+	cd $GOPATH/src/github.com/MeABc/glog
+	# git remote add -f upstream https://github.com/golang/glog
+	# git rebase upstream/master
 	go build -v
-	grep -q 'machine github.com' ~/.netrc && git push -f origin master
+	# grep -q 'machine github.com' ~/.netrc && git push -f origin master
+	grep -q 'machine github.com' ~/.netrc
 
 	popd
 }
@@ -120,12 +123,13 @@ function build_glog() {
 function build_http2() {
 	pushd ${WORKING_DIR}
 
-	git clone https://github.com/phuslu/net $GOPATH/src/github.com/phuslu/net
-	cd $GOPATH/src/github.com/phuslu/net/http2
-	git remote add -f upstream https://github.com/golang/net
-	git rebase upstream/master
-	go get -x github.com/phuslu/net/http2
-	grep -q 'machine github.com' ~/.netrc && git push -f origin master
+	git clone https://github.com/MeABc/net $GOPATH/src/github.com/MeABc/net
+	cd $GOPATH/src/github.com/MeABc/net/http2
+	# git remote add -f upstream https://github.com/golang/net
+	# git rebase upstream/master
+	go get -x github.com/MeABc/net/http2
+	# grep -q 'machine github.com' ~/.netrc && git push -f origin master
+	grep -q 'machine github.com' ~/.netrc 
 
 	popd
 }
@@ -163,23 +167,23 @@ function build_repo() {
 
 	go test -v ./httpproxy/helpers
 
-	if curl -m 3 https://pki.google.com >/dev/null ; then
-		GoogleG2PKP=$(curl -s https://pki.google.com/GIAG2.crt | openssl x509 -inform der -pubkey | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | openssl base64)
-		sed -i -r "s/\"GoogleG2PKP\": \".+\"/\"GoogleG2PKP\": \"$GoogleG2PKP\"/g" httpproxy/filters/gae/gae.json
-		if git status -s | grep -q 'gae.json' ; then
-			git diff
-			git add httpproxy/filters/gae/gae.json
-			git commit -m "update GoogleG2PKP to $GoogleG2PKP"
-			grep -q 'machine github.com' ~/.netrc && git push -f origin master
-		fi
-	fi
+	# if curl -m 3 https://pki.google.com >/dev/null ; then
+	# 	GoogleG2PKP=$(curl -s https://pki.google.com/GIAG2.crt | openssl x509 -inform der -pubkey | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | openssl base64)
+	# 	sed -i -r "s/\"GoogleG2PKP\": \".+\"/\"GoogleG2PKP\": \"$GoogleG2PKP\"/g" httpproxy/filters/gae/gae.json
+	# 	if git status -s | grep -q 'gae.json' ; then
+	# 		git diff
+	# 		git add httpproxy/filters/gae/gae.json
+	# 		git commit -m "update GoogleG2PKP to $GoogleG2PKP"
+	# 		grep -q 'machine github.com' ~/.netrc && git push -f origin master
+	# 	fi
+	# fi
 
 	make GOARCH=amd64 -C ./assets/taskbar
-	cp -f ./assets/taskbar/goproxy-gui.exe ./assets/packaging/goproxy-gui.exe
+	cp -f ./assets/taskbar/zebra-gui.exe ./assets/packaging/zebra-gui.exe
 	make GOOS=windows GOARCH=amd64 CGO_ENABLED=0
 
 	make GOARCH=386 -C ./assets/taskbar
-	cp -f ./assets/taskbar/goproxy-gui_x86.exe ./assets/packaging/goproxy-gui.exe
+	cp -f ./assets/taskbar/zebra-gui_x86.exe ./assets/packaging/zebra-gui.exe
 	make GOOS=windows GOARCH=386 CGO_ENABLED=0
 
 	cat <<EOF |
@@ -203,10 +207,10 @@ EOF
 	cp -r build/*/dist/* ${WORKING_DIR}/r${RELEASE}
 	# test $(ls -1 ${WORKING_DIR}/r${RELEASE} | wc -l) -eq 15
 
-	git archive --format=tar --prefix="goproxy-r${RELEASE}/" HEAD | xz > "${WORKING_DIR}/r${RELEASE}/source.tar.xz"
+	git archive --format=tar --prefix="zebra-r${RELEASE}/" HEAD | xz > "${WORKING_DIR}/r${RELEASE}/source.tar.xz"
 
-	export GAE_RELEASE=$(git rev-list --count origin/server.gae)
-	git archive --format=zip --prefix="goproxy-r${GAE_RELEASE}/" origin/server.gae > "${WORKING_DIR}/r${RELEASE}/goproxy-gae-r${GAE_RELEASE}.zip"
+	# export GAE_RELEASE=$(git rev-list --count origin/server.gae)
+	# git archive --format=zip --prefix="zebra-r${GAE_RELEASE}/" origin/server.gae > "${WORKING_DIR}/r${RELEASE}/zebra-gae-r${GAE_RELEASE}.zip"
 
 	cd ${WORKING_DIR}/r${RELEASE}
 	rename 's/_darwin_(amd64|386)/_macos_\1/' *
@@ -214,40 +218,40 @@ EOF
 	# rename 's/_linux_arm-/_linux_armv6l-/' *
 	# rename 's/_linux_arm64/_linux_aarch64/' *
 
-	mkdir -p GoProxy.app/Contents/{MacOS,Resources}
-	tar xvpf goproxy_macos_amd64-r${RELEASE}.tar.bz2 -C GoProxy.app/Contents/MacOS/
-	cp ${WORKING_DIR}/${GITHUB_REPO}/assets/packaging/goproxy-macos.icns GoProxy.app/Contents/Resources/
-	cat <<EOF > GoProxy.app/Contents/Info.plist
+	mkdir -p zebra.app/Contents/{MacOS,Resources}
+	tar xvpf zebra_macos_amd64-r${RELEASE}.tar.bz2 -C Zebra.app/Contents/MacOS/
+	cp ${WORKING_DIR}/${GITHUB_REPO}/assets/packaging/zebra-macos.icns Zebra.app/Contents/Resources/
+	cat <<EOF > Zebra.app/Contents/Info.plist
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
         <key>CFBundleExecutable</key>
-        <string>goproxy-macos</string>
+        <string>zebra-macos</string>
         <key>CFBundleGetInfoString</key>
-        <string>GoProxy For macOS</string>
+        <string>Zebra For macOS</string>
         <key>CFBundleIconFile</key>
-        <string>goproxy-macos</string>
+        <string>zebra-macos</string>
         <key>CFBundleName</key>
-        <string>GoProxy</string>
+        <string>Zebra</string>
         <key>CFBundlePackageType</key>
         <string>APPL</string>
 </dict>
 </plist>
 EOF
-	cat <<EOF > GoProxy.app/Contents/MacOS/goproxy-macos
-#!$(head -1 GoProxy.app/Contents/MacOS/goproxy-macos.command | tr -d '()' | awk '{print $1}')
+	cat <<EOF > Zebra.app/Contents/MacOS/zebra-macos
+#!$(head -1 Zebra.app/Contents/MacOS/zebra-macos.command | tr -d '()' | awk '{print $1}')
 import os
-__file__ = os.path.join(os.path.dirname(__file__), 'goproxy-macos.command')
+__file__ = os.path.join(os.path.dirname(__file__), 'zebra-macos.command')
 text = open(__file__, 'rb').read()
 code = compile(text[text.index('\n'):], __file__, 'exec')
 exec code
 EOF
-	chmod +x GoProxy.app/Contents/MacOS/goproxy-macos
-	BZIP=-9 tar cvjpf goproxy_macos_app-r${RELEASE}.tar.bz2 GoProxy.app
-	rm -rf GoProxy.app
+	chmod +x Zebra.app/Contents/MacOS/zebra-macos
+	BZIP=-9 tar cvjpf zebra_macos_app-r${RELEASE}.tar.bz2 Zebra.app
+	rm -rf Zebra.app
 
-	for FILE in goproxy_windows_*.7z
+	for FILE in zebra_windows_*.7z
 	do
 		cat ${WORKING_DIR}/${GITHUB_REPO}/assets/packaging/7zCon.sfx ${FILE} >${FILE}.exe
 		/bin/mv ${FILE}.exe ${FILE}
@@ -265,12 +269,12 @@ function build_repo_ex() {
 	git fetch origin server.vps
 	git reset --hard origin/server.vps
 
-	git clone --branch master https://github.com/phuslu/goproxy $GOPATH/src/github.com/phuslu/goproxy
+	git clone --branch master https://github.com/MeABc/zebra $GOPATH/src/github.com/MeABc/zebra
 	awk 'match($1, /"((github\.com|golang\.org|gopkg\.in)\/.+)"/) {if (!seen[$1]++) {gsub("\"", "", $1); print $1}}' $(find . -name "*.go") | xargs -n1 -i go get -u -v {}
 
 	for OSARCH in linux/amd64 linux/386 linux/arm64 linux/arm linux/mips linux/mipsle windows/amd64 darwin/amd64
 	do
-		rm -rf goproxy-vps
+		rm -rf zebra-vps
 		make GOOS=${OSARCH%/*} GOARCH=${OSARCH#*/}
 	done
 
@@ -343,7 +347,7 @@ function release_sourceforge() {
 
 	for i in $(seq 5)
 	do
-		echo Uploading r${RELEASE}/* to https://sourceforge.net/projects/goproxy/files/r${RELEASE}/
+		echo Uploading r${RELEASE}/* to https://sourceforge.net/projects/zebra/files/r${RELEASE}/
 		if timeout -k60 60 lftp "sftp://${SOURCEFORGE_USER}:${SOURCEFORGE_PASSWORD}@frs.sourceforge.net/home/frs/project/${SOURCEFORGE_REPO}/" -e "rm -rf r${RELEASE}; mkdir r${RELEASE}; mirror -R r${RELEASE} r${RELEASE}; bye"; then
 			break
 		fi
@@ -374,9 +378,9 @@ build_glog
 build_http2
 build_repo
 if [ "x${TRAVIS_EVENT_TYPE}" == "xpush" ]; then
-	rebuild_go_with_tls13
-	build_repo_ex
+	# rebuild_go_with_tls13
+	# build_repo_ex
 	release_github
-	release_sourceforge
+	# release_sourceforge
 	clean
 fi
