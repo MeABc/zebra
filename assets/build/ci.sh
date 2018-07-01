@@ -74,7 +74,6 @@ function build_go() {
   # fi
   bash ./make.bash
   # grep -q 'machine github.com' ~/.netrc && git push -f origin master
-  grep -q 'machine github.com' ~/.netrc
 
   set +ex
   echo '================================================================================'
@@ -93,22 +92,6 @@ function build_go() {
   popd
 }
 
-function rebuild_go_with_tls13() {
-  pushd "${WORKING_DIR}"
-
-  cd go/src
-
-  if git log --oneline -5 master | grep 'tls-tris' >/dev/null 2>&1; then
-    echo 'tls-tris already land on master'
-  else
-    git cherry-pick "$(git log -1 --oneline --format="%h" origin/tls13)"
-    bash ./make.bash
-    grep -q 'machine github.com' ~/.netrc && git push -f origin HEAD:tls13
-  fi
-
-  popd
-}
-
 function build_glog() {
   pushd "${WORKING_DIR}"
 
@@ -118,7 +101,6 @@ function build_glog() {
   # git rebase upstream/master
   go build -v
   # grep -q 'machine github.com' ~/.netrc && git push -f origin master
-  grep -q 'machine github.com' ~/.netrc
 
   popd
 }
@@ -132,7 +114,29 @@ function build_http2() {
   # git rebase upstream/master
   go get -x github.com/MeABc/net/http2
   # grep -q 'machine github.com' ~/.netrc && git push -f origin master
-  grep -q 'machine github.com' ~/.netrc
+
+  popd
+}
+
+function build_bogo() {
+  pushd "${WORKING_DIR}"
+
+  git clone https://github.com/MeABc/bogo "${GOPATH}"/src/github.com/MeABc/bogo
+  cd "${GOPATH}"/src/github.com/MeABc/bogo
+  go get -x github.com/MeABc/bogo
+
+  popd
+}
+
+function build_quicgo() {
+  pushd "${WORKING_DIR}"
+
+  git clone https://github.com/MeABc/quic-go "${GOPATH}"/src/github.com/MeABc/quic-go
+  cd "${GOPATH}"/src/github.com/MeABc/quic-go
+  # git remote add -f upstream https://github.com/lucas-clemente/quic-go
+  # git rebase upstream/master
+  go get -v github.com/MeABc/quic-go/h2quic
+  # grep -q 'machine github.com' ~/.netrc && git push -f origin master
 
   popd
 }
@@ -184,30 +188,31 @@ function build_repo() {
   # 	fi
   # fi
 
-  make GOARCH=amd64 -C ./assets/taskbar
-  cp -f ./assets/taskbar/zebra-gui.exe ./assets/packaging/zebra-gui.exe
-  make GOOS=windows GOARCH=amd64 CGO_ENABLED=0
-
-  make GOARCH=386 -C ./assets/taskbar
-  cp -f ./assets/taskbar/zebra-gui_x86.exe ./assets/packaging/zebra-gui.exe
-  make GOOS=windows GOARCH=386 CGO_ENABLED=0
+  pushd ./assets/taskbar
+  env GOARCH=amd64 ./make.bash
+  env GOARCH=386 ./make.bash
+  popd
 
   cat <<EOF |
-make GOOS=darwin GOARCH=amd64 CGO_ENABLED=0
-make GOOS=freebsd GOARCH=386 CGO_ENABLED=0
-make GOOS=freebsd GOARCH=amd64 CGO_ENABLED=0
-make GOOS=freebsd GOARCH=arm CGO_ENABLED=0
-make GOOS=linux GOARCH=386 CGO_ENABLED=0
-make GOOS=linux GOARCH=amd64 CGO_ENABLED=0
-make GOOS=linux GOARCH=arm CGO_ENABLED=0
-make GOOS=linux GOARCH=arm CGO_ENABLED=1
-make GOOS=linux GOARCH=arm64 CGO_ENABLED=0
-make GOOS=linux GOARCH=mips CGO_ENABLED=0
-make GOOS=linux GOARCH=mips64 CGO_ENABLED=0
-make GOOS=linux GOARCH=mips64le CGO_ENABLED=0
-make GOOS=linux GOARCH=mipsle CGO_ENABLED=0
+GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 ./make.bash
+GOOS=freebsd GOARCH=386 CGO_ENABLED=0 ./make.bash
+GOOS=freebsd GOARCH=amd64 CGO_ENABLED=0 ./make.bash
+GOOS=freebsd GOARCH=arm CGO_ENABLED=0 ./make.bash
+GOOS=linux GOARCH=386 CGO_ENABLED=0 ./make.bash
+GOOS=linux GOARCH=amd64 CGO_ENABLED=0 ./make.bash
+GOOS=linux GOARCH=arm CGO_ENABLED=0 ./make.bash
+GOOS=linux GOARCH=arm CGO_ENABLED=1 ./make.bash
+GOOS=linux GOARCH=arm64 CGO_ENABLED=0 ./make.bash
+GOOS=linux GOARCH=mips CGO_ENABLED=0 ./make.bash
+GOOS=linux GOARCH=mips64 CGO_ENABLED=0 ./make.bash
+GOOS=linux GOARCH=mips64le CGO_ENABLED=0 ./make.bash
+GOOS=linux GOARCH=mipsle CGO_ENABLED=0 ./make.bash
+GOOS=windows GOARCH=386 CGO_ENABLED=0 ./make.bash
+GOOS=windows GOARCH=amd64 CGO_ENABLED=0 ./make.bash
 EOF
     xargs --max-procs=5 -n1 -i bash -c {}
+
+  GOOS=linux GOARCH=amd64 CGO_ENABLED=0 ./make.bash chec
 
   mkdir -p "${WORKING_DIR}"/r"${RELEASE}"
   cp -r build/*/dist/* "${WORKING_DIR}"/r"${RELEASE}"
@@ -267,23 +272,57 @@ EOF
   popd
 }
 
-function build_repo_ex() {
+function build_server_gae() {
+  pushd "${WORKING_DIR}"/"${GITHUB_REPO}"
+
+  git checkout -f server.gae
+  git fetch origin server.gae
+  git reset --hard origin/server.gae
+  git clean -dfx .
+
+  for FILE in python27.exe python27.dll python27.zip; do
+    curl -LOJ https://raw.githubusercontent.com/MeABc/pybuild/master/${FILE}
+  done
+
+  echo -e '@echo off\n"%~dp0python27.exe" uploader.py || pause' >uploader.bat
+
+  GAE_RELEASE=$(git rev-list --count HEAD)
+  export GAE_RELEASE
+  sed -i "s/r9999/r${GAE_RELEASE}/" gae/gae.go
+  tar cvJpf "${WORKING_DIR}"/r"${RELEASE}"/zebra-gae-r"${GAE_RELEASE}".tar.xz -- *
+
+  popd
+}
+
+function build_server_vps() {
   pushd "${WORKING_DIR}"/"${GITHUB_REPO}"
 
   git checkout -f server.vps
   git fetch origin server.vps
   git reset --hard origin/server.vps
+  git clean -dfx .
 
   git clone --branch master https://github.com/MeABc/zebra "${GOPATH}"/src/github.com/MeABc/zebra
-  awk 'match($1, /"((github\.com|golang\.org|gopkg\.in)\/.+)"/) {if (!seen[$1]++) {gsub("\"", "", $1); print $1}}' "$(find . -name "*.go")" | xargs -n1 -i go get -u -v {}
+  awk 'match($1, /"((github\.com|golang\.org|gopkg\.in)\/.+)"/) {if (!seen[$1]++) {gsub("\"", "", $1); print $1}}' $(find . -name "*.go") | xargs -n1 -i go get -u -v {}
 
-  for OSARCH in linux/amd64 linux/386 linux/arm64 linux/arm linux/mips linux/mipsle windows/amd64 darwin/amd64; do
-    rm -rf zebra-vps
-    make GOOS=${OSARCH%/*} GOARCH=${OSARCH#*/}
-  done
+  cat <<EOF |
+GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 ./make.bash
+GOOS=linux GOARCH=386 CGO_ENABLED=0 ./make.bash
+GOOS=linux GOARCH=amd64 CGO_ENABLED=0 ./make.bash
+GOOS=linux GOARCH=arm CGO_ENABLED=0 ./make.bash
+GOOS=linux GOARCH=arm64 CGO_ENABLED=0 ./make.bash
+GOOS=linux GOARCH=mipsle CGO_ENABLED=0 ./make.bash
+GOOS=windows GOARCH=amd64 CGO_ENABLED=0 ./make.bash
+GOOS=windows GOARCH=386 CGO_ENABLED=0 ./make.bash
+EOF
+    xargs --max-procs=5 -n1 -i bash -c {}
 
+  local files
+  files=$(find ./build -type f -name "*.gz" -or -name "*.bz2" -or -name "*.xz" -or -name "*.7z")
+  cp "${files}" "${WORKING_DIR}"/r"${RELEASE}"
+
+  cd "${WORKING_DIR}"/r"${RELEASE}"
   rename 's/_darwin_(amd64|386)/_macos_\1/' -- *
-  cp -r "$(/bin/ls -- *.{gz,bz2,xz})" "${WORKING_DIR}"/r"${RELEASE}"
 
   popd
 }
@@ -380,10 +419,13 @@ init_github
 build_go
 build_glog
 build_http2
+build_bogo
+build_quicgo
 build_repo
 if [ "x${TRAVIS_EVENT_TYPE}" == "xpush" ]; then
   # rebuild_go_with_tls13
-  # build_repo_ex
+  # build_goproxy_gae
+  # build_goproxy_vps
   release_github
   # release_sourceforge
   clean
