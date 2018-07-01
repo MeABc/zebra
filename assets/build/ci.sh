@@ -194,6 +194,8 @@ function build_repo() {
   env GOARCH=386 ./make.bash
   popd
 
+  chmod +x ./make.bash
+
   cat <<EOF |
 GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 ./make.bash
 GOOS=freebsd GOARCH=386 CGO_ENABLED=0 ./make.bash
