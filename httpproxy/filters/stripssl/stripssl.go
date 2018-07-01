@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudflare/golibs/lrucache"
 	"github.com/MeABc/glog"
+	"github.com/cloudflare/golibs/lrucache"
 
 	"../../filters"
 	"../../helpers"
