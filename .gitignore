@@ -1,4 +1,4 @@
-build/
+buildtemp/
 cache/
 *.crt
 *.db
