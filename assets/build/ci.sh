@@ -7,7 +7,8 @@ export GITHUB_CI_REPO=${GITHUB_CI_REPO:-zebra-ci}
 export GITHUB_COMMIT_ID=${TRAVIS_COMMIT:-${COMMIT_ID:-master}}
 # export SOURCEFORGE_USER=${SOURCEFORGE_USER:-${GITHUB_USER}}
 # export SOURCEFORGE_REPO=${SOURCEFORGE_REPO:-${GITHUB_REPO}}
-export WORKING_DIR=$(pwd)/${GITHUB_REPO}.$(date "+%y%m%d").${RANDOM:-$$}
+WORKING_DIR=$(pwd)/${GITHUB_REPO}.$(date "+%y%m%d").${RANDOM:-$$}
+export WORKING_DIR
 export GOROOT_BOOTSTRAP=${WORKING_DIR}/goroot_bootstrap
 export GOROOT=${WORKING_DIR}/go
 export GOPATH=${WORKING_DIR}/gopath
@@ -24,24 +25,25 @@ fi
 
 for CMD in curl awk git tar bzip2 xz 7za gcc make sha1sum timeout; do
   if ! type -p ${CMD}; then
-    echo -e "\e[1;31mtool ${CMD} is not installed, abort.\e[0m"
+    echo -e "\\e[1;31mtool ${CMD} is not installed, abort.\\e[0m"
     exit 1
   fi
 done
 
-mkdir -p ${WORKING_DIR}
+mkdir -p "${WORKING_DIR}"
 
 function rename() {
-  for FILENAME in ${@:2}; do
-    local NEWNAME=$(echo ${FILENAME} | sed -r $1)
+  for FILENAME in "${@:2}"; do
+    local NEWNAME
+    NEWNAME=$(echo "${FILENAME}" | sed -r "$1")
     if [ "${NEWNAME}" != "${FILENAME}" ]; then
-      mv -f ${FILENAME} ${NEWNAME}
+      mv -f "${FILENAME}" "${NEWNAME}"
     fi
   done
 }
 
 function init_github() {
-  pushd ${WORKING_DIR}
+  pushd "${WORKING_DIR}"
 
   git config --global user.name "${GITHUB_USER}"
   git config --global user.email "${GITHUB_EMAIL}"
@@ -59,7 +61,7 @@ function init_github() {
 }
 
 function build_go() {
-  pushd ${WORKING_DIR}
+  pushd "${WORKING_DIR}"
 
   curl -k https://storage.googleapis.com/golang/go1.4.3.linux-amd64.tar.gz | tar xz
   mv go goroot_bootstrap
@@ -92,14 +94,14 @@ function build_go() {
 }
 
 function rebuild_go_with_tls13() {
-  pushd ${WORKING_DIR}
+  pushd "${WORKING_DIR}"
 
   cd go/src
 
-  if git log --oneline -5 master | grep 'tls-tris' 2>&1 >/dev/null; then
+  if git log --oneline -5 master | grep 'tls-tris' >/dev/null 2>&1; then
     echo 'tls-tris already land on master'
   else
-    git cherry-pick $(git log -1 --oneline --format="%h" origin/tls13)
+    git cherry-pick "$(git log -1 --oneline --format="%h" origin/tls13)"
     bash ./make.bash
     grep -q 'machine github.com' ~/.netrc && git push -f origin HEAD:tls13
   fi
@@ -108,10 +110,10 @@ function rebuild_go_with_tls13() {
 }
 
 function build_glog() {
-  pushd ${WORKING_DIR}
+  pushd "${WORKING_DIR}"
 
-  git clone https://github.com/MeABc/glog $GOPATH/src/github.com/MeABc/glog
-  cd $GOPATH/src/github.com/MeABc/glog
+  git clone https://github.com/MeABc/glog "${GOPATH}"/src/github.com/MeABc/glog
+  cd "${GOPATH}"/src/github.com/MeABc/glog
   # git remote add -f upstream https://github.com/golang/glog
   # git rebase upstream/master
   go build -v
@@ -122,10 +124,10 @@ function build_glog() {
 }
 
 function build_http2() {
-  pushd ${WORKING_DIR}
+  pushd "${WORKING_DIR}"
 
-  git clone https://github.com/MeABc/net $GOPATH/src/github.com/MeABc/net
-  cd $GOPATH/src/github.com/MeABc/net/http2
+  git clone https://github.com/MeABc/net "${GOPATH}"/src/github.com/MeABc/net
+  cd "${GOPATH}"/src/github.com/MeABc/net/http2
   # git remote add -f upstream https://github.com/golang/net
   # git rebase upstream/master
   go get -x github.com/MeABc/net/http2
@@ -136,35 +138,38 @@ function build_http2() {
 }
 
 function build_repo() {
-  pushd ${WORKING_DIR}
+  pushd "${WORKING_DIR}"
 
-  git clone https://github.com/${GITHUB_USER}/${GITHUB_REPO} ${GITHUB_REPO}
-  cd ${GITHUB_REPO}
+  git clone https://github.com/"${GITHUB_USER}"/"${GITHUB_REPO}" "${GITHUB_REPO}"
+  cd "${GITHUB_REPO}"
 
-  if [ ${TRAVIS_PULL_REQUEST:-false} == "false" ]; then
-    git checkout -f ${GITHUB_COMMIT_ID}
+  if [ "${TRAVIS_PULL_REQUEST:-false}" == "false" ]; then
+    git checkout -f "${GITHUB_COMMIT_ID}"
   else
-    git fetch origin pull/${TRAVIS_PULL_REQUEST}/head:pr
+    git fetch origin pull/"${TRAVIS_PULL_REQUEST}"/head:pr
     git checkout -f pr
   fi
 
-  export RELEASE=$(git rev-list --count HEAD)
-  export RELEASE_DESCRIPTION=$(git log -1 --oneline --format="r${RELEASE}: [\`%h\`](https://github.com/${GITHUB_USER}/${GITHUB_REPO}/commit/%h) %s")
+  RELEASE=$(git rev-list --count HEAD)
+  export RELEASE
+  RELEASE_DESCRIPTION=$(git log -1 --oneline --format="r${RELEASE}: [\`%h\`](https://github.com/${GITHUB_USER}/${GITHUB_REPO}/commit/%h) %s")
+  export RELEASE_DESCRIPTION
   if [ -n "${TRAVIS_BUILD_ID}" ]; then
-    export RELEASE_DESCRIPTION=$(echo ${RELEASE_DESCRIPTION} | sed -E "s#^(r[0-9]+)#[\1](https://travis-ci.org/${GITHUB_USER}/${GITHUB_REPO}/builds/${TRAVIS_BUILD_ID})#g")
+    RELEASE_DESCRIPTION=$(echo "${RELEASE_DESCRIPTION}" | sed -E "s#^(r[0-9]+)#[\\1](https://travis-ci.org/${GITHUB_USER}/${GITHUB_REPO}/builds/${TRAVIS_BUILD_ID})#g")
+    export RELEASE_DESCRIPTION
   fi
 
-  if grep -lr $(printf '\r\n') * | grep '.go$'; then
-    echo -e "\e[1;31mPlease run dos2unix for go source files\e[0m"
+  if grep -lr "$(printf '\r\n')" -- * | grep '.go$'; then
+    echo -e "\\e[1;31mPlease run dos2unix for go source files\\e[0m"
     exit 1
   fi
 
   if [ "$(gofmt -l . | tee /dev/tty)" != "" ]; then
-    echo -e "\e[1;31mPlease run 'gofmt -s -w .' for go source files\e[0m"
+    echo -e "\\e[1;31mPlease run 'gofmt -s -w .' for go source files\\e[0m"
     exit 1
   fi
 
-  awk 'match($1, /"((github\.com|golang\.org|gopkg\.in)\/.+)"/) {if (!seen[$1]++) {gsub("\"", "", $1); print $1}}' $(find . -name "*.go") | xargs -n1 -i go get -u -v {}
+  awk 'match($1, /"((github\.com|golang\.org|gopkg\.in)\/.+)"/) {if (!seen[$1]++) {gsub("\"", "", $1); print $1}}' "$(find . -name "*.go")" | xargs -n1 -i go get -u -v {}
 
   go test -v ./httpproxy/helpers
 
@@ -204,8 +209,8 @@ make GOOS=linux GOARCH=mipsle CGO_ENABLED=0
 EOF
     xargs --max-procs=5 -n1 -i bash -c {}
 
-  mkdir -p ${WORKING_DIR}/r${RELEASE}
-  cp -r build/*/dist/* ${WORKING_DIR}/r${RELEASE}
+  mkdir -p "${WORKING_DIR}"/r"${RELEASE}"
+  cp -r build/*/dist/* "${WORKING_DIR}"/r"${RELEASE}"
   # test $(ls -1 ${WORKING_DIR}/r${RELEASE} | wc -l) -eq 15
 
   git archive --format=tar --prefix="zebra-r${RELEASE}/" HEAD | xz >"${WORKING_DIR}/r${RELEASE}/source.tar.xz"
@@ -213,15 +218,15 @@ EOF
   # export GAE_RELEASE=$(git rev-list --count origin/server.gae)
   # git archive --format=zip --prefix="zebra-r${GAE_RELEASE}/" origin/server.gae > "${WORKING_DIR}/r${RELEASE}/zebra-gae-r${GAE_RELEASE}.zip"
 
-  cd ${WORKING_DIR}/r${RELEASE}
-  rename 's/_darwin_(amd64|386)/_macos_\1/' *
-  rename 's/_darwin_(arm64|arm)/_ios_\1/' *
+  cd "${WORKING_DIR}"/r"${RELEASE}"
+  rename 's/_darwin_(amd64|386)/_macos_\1/' -- *
+  rename 's/_darwin_(arm64|arm)/_ios_\1/' -- *
   # rename 's/_linux_arm-/_linux_armv6l-/' *
   # rename 's/_linux_arm64/_linux_aarch64/' *
 
   mkdir -p zebra.app/Contents/{MacOS,Resources}
-  tar xvpf zebra_macos_amd64-r${RELEASE}.tar.bz2 -C Zebra.app/Contents/MacOS/
-  cp ${WORKING_DIR}/${GITHUB_REPO}/assets/packaging/zebra-macos.icns Zebra.app/Contents/Resources/
+  tar xvpf zebra_macos_amd64-r"${RELEASE}".tar.bz2 -C Zebra.app/Contents/MacOS/
+  cp "${WORKING_DIR}"/"${GITHUB_REPO}"/assets/packaging/zebra-macos.icns Zebra.app/Contents/Resources/
   cat <<EOF >Zebra.app/Contents/Info.plist
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -245,16 +250,16 @@ EOF
 import os
 __file__ = os.path.join(os.path.dirname(__file__), 'zebra-macos.command')
 text = open(__file__, 'rb').read()
-code = compile(text[text.index('\n'):], __file__, 'exec')
+code = compile(text[text.index('\\n'):], __file__, 'exec')
 exec code
 EOF
   chmod +x Zebra.app/Contents/MacOS/zebra-macos
-  BZIP=-9 tar cvjpf zebra_macos_app-r${RELEASE}.tar.bz2 Zebra.app
+  BZIP=-9 tar cvjpf zebra_macos_app-r"${RELEASE}".tar.bz2 Zebra.app
   rm -rf Zebra.app
 
   for FILE in zebra_windows_*.7z; do
-    cat ${WORKING_DIR}/${GITHUB_REPO}/assets/packaging/7zCon.sfx ${FILE} >${FILE}.exe
-    /bin/mv ${FILE}.exe ${FILE}
+    cat "${WORKING_DIR}"/"${GITHUB_REPO}"/assets/packaging/7zCon.sfx "${FILE}" >"${FILE}".exe
+    /bin/mv "${FILE}".exe "${FILE}"
   done
 
   ls -lht
@@ -263,59 +268,60 @@ EOF
 }
 
 function build_repo_ex() {
-  pushd ${WORKING_DIR}/${GITHUB_REPO}
+  pushd "${WORKING_DIR}"/"${GITHUB_REPO}"
 
   git checkout -f server.vps
   git fetch origin server.vps
   git reset --hard origin/server.vps
 
-  git clone --branch master https://github.com/MeABc/zebra $GOPATH/src/github.com/MeABc/zebra
-  awk 'match($1, /"((github\.com|golang\.org|gopkg\.in)\/.+)"/) {if (!seen[$1]++) {gsub("\"", "", $1); print $1}}' $(find . -name "*.go") | xargs -n1 -i go get -u -v {}
+  git clone --branch master https://github.com/MeABc/zebra "${GOPATH}"/src/github.com/MeABc/zebra
+  awk 'match($1, /"((github\.com|golang\.org|gopkg\.in)\/.+)"/) {if (!seen[$1]++) {gsub("\"", "", $1); print $1}}' "$(find . -name "*.go")" | xargs -n1 -i go get -u -v {}
 
   for OSARCH in linux/amd64 linux/386 linux/arm64 linux/arm linux/mips linux/mipsle windows/amd64 darwin/amd64; do
     rm -rf zebra-vps
     make GOOS=${OSARCH%/*} GOARCH=${OSARCH#*/}
   done
 
-  rename 's/_darwin_(amd64|386)/_macos_\1/' *
-  cp -r $(/bin/ls *.{gz,bz2,xz}) ${WORKING_DIR}/r${RELEASE}
+  rename 's/_darwin_(amd64|386)/_macos_\1/' -- *
+  cp -r "$(/bin/ls -- *.{gz,bz2,xz})" "${WORKING_DIR}"/r"${RELEASE}"
 
   popd
 }
 
 function release_github() {
-  pushd ${WORKING_DIR}
+  pushd "${WORKING_DIR}"
 
   if [ ${#GITHUB_TOKEN} -eq 0 ]; then
-    echo -e "\e[1;31m\$GITHUB_TOKEN is not set, abort\e[0m"
+    echo -e "\\e[1;31m\$GITHUB_TOKEN is not set, abort\\e[0m"
     exit 1
   fi
 
-  git clone --branch "master" https://github.com/${GITHUB_USER}/${GITHUB_CI_REPO} ${GITHUB_CI_REPO}
-  cd ${GITHUB_CI_REPO}
+  git clone --branch "master" https://github.com/"${GITHUB_USER}"/"${GITHUB_CI_REPO}" "${GITHUB_CI_REPO}"
+  cd "${GITHUB_CI_REPO}"
 
   git commit --allow-empty -m "release"
-  git tag -d r${RELEASE} || true
-  git tag r${RELEASE}
-  git push -f origin r${RELEASE}
+  git tag -d r"${RELEASE}" || true
+  git tag r"${RELEASE}"
+  git push -f origin r"${RELEASE}"
 
-  cd ${WORKING_DIR}
+  cd "${WORKING_DIR}"
   local GITHUB_RELEASE_URL=https://github.com/aktau/github-release/releases/download/v0.6.2/linux-amd64-github-release.tar.bz2
-  local GITHUB_RELEASE_BIN=$(pwd)/$(curl -L ${GITHUB_RELEASE_URL} | tar xjpv | head -1)
+  local GITHUB_RELEASE_BIN
+  GITHUB_RELEASE_BIN=$(pwd)/$(curl -L ${GITHUB_RELEASE_URL} | tar xjpv | head -1)
 
-  cd ${WORKING_DIR}/r${RELEASE}/
+  cd "${WORKING_DIR}"/r"${RELEASE}"/
 
   for i in $(seq 5); do
-    if ! ${GITHUB_RELEASE_BIN} release --user ${GITHUB_USER} --repo ${GITHUB_CI_REPO} --tag r${RELEASE} --name "${GITHUB_REPO} r${RELEASE}" --description "${RELEASE_DESCRIPTION}"; then
+    if ! ${GITHUB_RELEASE_BIN} release --user "${GITHUB_USER}" --repo "${GITHUB_CI_REPO}" --tag r"${RELEASE}" --name "${GITHUB_REPO} r${RELEASE}" --description "${RELEASE_DESCRIPTION}"; then
       sleep 3
-      ${GITHUB_RELEASE_BIN} delete --user ${GITHUB_USER} --repo ${GITHUB_CI_REPO} --tag r${RELEASE} >/dev/null 2>&1 || true
+      ${GITHUB_RELEASE_BIN} delete --user "${GITHUB_USER}" --repo "${GITHUB_CI_REPO}" --tag r"${RELEASE}" >/dev/null 2>&1 || true
       sleep 3
       continue
     fi
 
     local allok="true"
     for FILE in *; do
-      if ! timeout -k60 60 ${GITHUB_RELEASE_BIN} upload --user ${GITHUB_USER} --repo ${GITHUB_CI_REPO} --tag r${RELEASE} --name ${FILE} --file ${FILE}; then
+      if ! timeout -k60 60 "${GITHUB_RELEASE_BIN}" upload --user "${GITHUB_USER}" --repo "${GITHUB_CI_REPO}" --tag r"${RELEASE}" --name "${FILE}" --file "${FILE}"; then
         allok="false"
         break
       fi
@@ -325,25 +331,27 @@ function release_github() {
     fi
   done
 
-  local files=$(ls ${WORKING_DIR}/r${RELEASE}/ | wc -l)
-  local uploads=$(${GITHUB_RELEASE_BIN} info --user ${GITHUB_USER} --repo ${GITHUB_CI_REPO} --tag r${RELEASE} | grep -- '- artifact: ' | wc -l)
-  test ${files} -eq ${uploads}
+  local files
+  files=$(ls "${WORKING_DIR}"/r"${RELEASE}"/ | wc -l)
+  local uploads
+  uploads=$(${GITHUB_RELEASE_BIN} info --user "${GITHUB_USER}" --repo "${GITHUB_CI_REPO}" --tag r"${RELEASE}" | grep -c '- artifact: ')
+  test "${files}" -eq "${uploads}"
 
   popd
 }
 
 function release_sourceforge() {
-  pushd ${WORKING_DIR}/
+  pushd "${WORKING_DIR}"/
 
   if [ ${#SOURCEFORGE_PASSWORD} -eq 0 ]; then
-    echo -e "\e[1;31m\$SOURCEFORGE_PASSWORD is not set, abort\e[0m"
+    echo -e "\\e[1;31m\$SOURCEFORGE_PASSWORD is not set, abort\\e[0m"
     exit 1
   fi
 
   set +ex
 
   for i in $(seq 5); do
-    echo Uploading r${RELEASE}/* to https://sourceforge.net/projects/zebra/files/r${RELEASE}/
+    echo Uploading r"${RELEASE}"/* to https://sourceforge.net/projects/zebra/files/r"${RELEASE}"/
     if timeout -k60 60 lftp "sftp://${SOURCEFORGE_USER}:${SOURCEFORGE_PASSWORD}@frs.sourceforge.net/home/frs/project/${SOURCEFORGE_REPO}/" -e "rm -rf r${RELEASE}; mkdir r${RELEASE}; mirror -R r${RELEASE} r${RELEASE}; bye"; then
       break
     fi
@@ -357,13 +365,13 @@ function release_sourceforge() {
 function clean() {
   set +ex
 
-  pushd ${WORKING_DIR}/r${RELEASE}/
+  pushd "${WORKING_DIR}"/r"${RELEASE}"/
   ls -lht
   echo
   echo 'sha1sum *'
-  sha1sum * | xargs -n1 -i echo -e "\e[1;32m{}\e[0m"
+  sha1sum -- * | xargs -n1 -i echo -e "\\e[1;32m{}\\e[0m"
   popd >/dev/null
-  rm -rf ${WORKING_DIR}
+  rm -rf "${WORKING_DIR}"
 
   set -ex
 }
