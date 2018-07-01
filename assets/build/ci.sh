@@ -215,7 +215,7 @@ GOOS=windows GOARCH=amd64 CGO_ENABLED=0 ./make.bash
 EOF
     xargs --max-procs=5 -n1 -i bash -c {}
 
-  GOOS=linux GOARCH=amd64 CGO_ENABLED=0 ./make.bash chec
+  GOOS=linux GOARCH=amd64 CGO_ENABLED=0 ./make.bash check
 
   mkdir -p "${WORKING_DIR}"/r"${RELEASE}"
   cp -r build/*/dist/* "${WORKING_DIR}"/r"${RELEASE}"

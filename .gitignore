@@ -6,16 +6,10 @@ cache/
 *.exe~
 *.key
 *.user.json
-addto-startup.vbs
 zebra.log
 zebra.log.*.gz
-zebra.sh
 zebra.bat
-zebra-gtk.desktop
-zebra-gtk.py
 zebra-logo.png
-zebra-macos.command
-zebra-gui.exe
 proxy.pac
 zebra.crt
 zebra.key
