@@ -189,6 +189,7 @@ function build_repo() {
   # fi
 
   pushd ./assets/taskbar
+  chmod +x ./make.bash
   env GOARCH=amd64 ./make.bash
   env GOARCH=386 ./make.bash
   popd
