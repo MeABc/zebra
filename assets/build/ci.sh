@@ -376,7 +376,7 @@ function release_github() {
   local files
   files=$(ls "${WORKING_DIR}"/r"${RELEASE}"/ | wc -l)
   local uploads
-  uploads=$(${GITHUB_RELEASE_BIN} info --user "${GITHUB_USER}" --repo "${GITHUB_CI_REPO}" --tag r"${RELEASE}" | grep -c '- artifact: ')
+  uploads=$(${GITHUB_RELEASE_BIN} info --user "${GITHUB_USER}" --repo "${GITHUB_CI_REPO}" --tag r"${RELEASE}" | grep -- '- artifact: ' | wc -l)
   test "${files}" -eq "${uploads}"
 
   popd
