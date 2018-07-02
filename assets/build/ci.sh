@@ -213,7 +213,7 @@ GOOS=linux GOARCH=mipsle CGO_ENABLED=0 ./make.bash
 GOOS=windows GOARCH=386 CGO_ENABLED=0 ./make.bash
 GOOS=windows GOARCH=amd64 CGO_ENABLED=0 ./make.bash
 EOF
-    xargs --max-procs=5 -n1 -i bash -c {}
+  xargs --max-procs=5 -n1 -i bash -c {}
 
   GOOS=linux GOARCH=amd64 CGO_ENABLED=0 ./make.bash check
 
@@ -232,7 +232,7 @@ EOF
   # rename 's/_linux_arm-/_linux_armv6l-/' *
   # rename 's/_linux_arm64/_linux_aarch64/' *
 
-  mkdir -p zebra.app/Contents/{MacOS,Resources}
+  mkdir -p Zebra.app/Contents/{MacOS,Resources}
   tar xvpf zebra_macos_amd64-r"${RELEASE}".tar.bz2 -C Zebra.app/Contents/MacOS/
   cp "${WORKING_DIR}"/"${GITHUB_REPO}"/assets/packaging/zebra-macos.icns Zebra.app/Contents/Resources/
   cat <<EOF >Zebra.app/Contents/Info.plist

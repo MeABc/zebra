@@ -116,15 +116,15 @@ build() {
 
 dist() {
   mkdir -p "${DISTDIR}" "${STAGEDIR}" "${ZEBRA_STAGEDIR}"
-  cp "${OBJECTS}" "${SOURCES}" "${ZEBRA_STAGEDIR}"
+  cp ${OBJECTS} ${SOURCES} ${ZEBRA_STAGEDIR}
 
   pushd "${STAGEDIR}"
-  ${ZEBRA_DISTCMD} "${ZEBRA_DIST}" -- *
+  ${ZEBRA_DISTCMD} ${ZEBRA_DIST} *
   popd
 }
 
 check() {
-  ZEBRA_WAIT_SECONDS=0 "${ZEBRA_STAGEDIR}"/"${ZEBRA_EXE}"
+  ZEBRA_WAIT_SECONDS=0 ${ZEBRA_STAGEDIR}/${ZEBRA_EXE}
 }
 
 clean() {
