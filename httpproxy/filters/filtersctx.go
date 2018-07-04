@@ -6,12 +6,15 @@ import (
 	"net/http"
 )
 
-type key int
+// https://github.com/golang/go/issues/17826#issuecomment-259035465
+type contextKey struct{}
 
-const (
-	// https://blog.golang.org/context#TOC_3.2.
-	contextKey key = 0x3f71df90 // fmt.Sprintf("%x", md5.Sum([]byte("phuslu")))[:8]
-)
+// type key int
+
+// const (
+// 	// https://blog.golang.org/context#TOC_3.2.
+// 	contextKey key = 0x3f71df90 // fmt.Sprintf("%x", md5.Sum([]byte("phuslu")))[:8]
+// )
 
 type racer struct {
 	h   http.Handler
@@ -22,31 +25,31 @@ type racer struct {
 }
 
 func NewContext(ctx context.Context, h http.Handler, ln net.Listener, rw http.ResponseWriter, brand string) context.Context {
-	return context.WithValue(ctx, contextKey, &racer{h, ln, rw, nil, brand})
+	return context.WithValue(ctx, contextKey{}, &racer{h, ln, rw, nil, brand})
 }
 
 func GetHandler(ctx context.Context) http.Handler {
-	return ctx.Value(contextKey).(*racer).h
+	return ctx.Value(contextKey{}).(*racer).h
 }
 
 func GetListener(ctx context.Context) net.Listener {
-	return ctx.Value(contextKey).(*racer).ln
+	return ctx.Value(contextKey{}).(*racer).ln
 }
 
 func GetResponseWriter(ctx context.Context) http.ResponseWriter {
-	return ctx.Value(contextKey).(*racer).rw
+	return ctx.Value(contextKey{}).(*racer).rw
 }
 
 func GetRoundTripFilter(ctx context.Context) RoundTripFilter {
-	return ctx.Value(contextKey).(*racer).rtf
+	return ctx.Value(contextKey{}).(*racer).rtf
 }
 
 func GetBranding(ctx context.Context) string {
-	return ctx.Value(contextKey).(*racer).b
+	return ctx.Value(contextKey{}).(*racer).b
 }
 
 func SetRoundTripFilter(ctx context.Context, filter RoundTripFilter) {
-	ctx.Value(contextKey).(*racer).rtf = filter
+	ctx.Value(contextKey{}).(*racer).rtf = filter
 }
 
 func WithString(ctx context.Context, name, value string) context.Context {
