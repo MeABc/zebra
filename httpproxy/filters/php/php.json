@@ -1,10 +1,10 @@
 {
 	"Servers": [
 		{
-		"URL": "https://example.com/",
-		"Password": "123456",
-		"SSLVerify": false,
-		"Host": "",
+			"URL": "https://example.com/",
+			"Password": "123456",
+			"SSLVerify": false,
+			"Host": "",
 		}
 	],
 	"Transport": {
