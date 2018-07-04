@@ -1,10 +1,12 @@
 {
-	"Servers": [{
+	"Servers": [
+		{
 		"URL": "https://example.com/",
 		"Password": "123456",
 		"SSLVerify": false,
 		"Host": "",
-	}],
+		}
+	],
 	"Transport": {
 		"Dialer": {
 			"Timeout": 10,
