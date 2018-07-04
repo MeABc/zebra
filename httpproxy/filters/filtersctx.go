@@ -6,8 +6,11 @@ import (
 	"net/http"
 )
 
+type key int
+
 const (
-	contextKey int = 0x3f71df90 // fmt.Sprintf("%x", md5.Sum([]byte("phuslu")))[:8]
+	// https://blog.golang.org/context#TOC_3.2.
+	contextKey key = 0x3f71df90 // fmt.Sprintf("%x", md5.Sum([]byte("phuslu")))[:8]
 )
 
 type racer struct {
