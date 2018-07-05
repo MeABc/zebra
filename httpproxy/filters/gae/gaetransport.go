@@ -64,20 +64,7 @@ func (t *Transport) roundTripQuic(req *http.Request) (*http.Response, error) {
 		req = req.WithContext(context.WithValue(req.Context(), responseHeaderTimeoutKey{}, 8*time.Second))
 	}
 
-	resp, err := t1.RoundTripOpt(req, h2quic.RoundTripOpt{OnlyCachedConn: true})
-
-	if err != nil {
-		if ne, ok := err.(*net.OpError); ok && ne != nil && ne.Addr != nil {
-			ip, _, _ := net.SplitHostPort(ne.Addr.String())
-			duration := 5 * time.Minute
-			glog.Warningf("GAE: QuicBody(%v) is timeout, add to blacklist for %v", ip, duration)
-			t.MultiDialer.IPBlackList.Set(ip, struct{}{}, time.Now().Add(duration))
-			helpers.CloseConnectionByRemoteHost(t1, ip)
-		} else {
-			t1.Close()
-		}
-		resp, err = t1.RoundTripOpt(req, h2quic.RoundTripOpt{OnlyCachedConn: false})
-	}
+	resp, err := t1.RoundTrip(req)
 
 	if resp != nil && resp.Body != nil {
 		if stream, ok := resp.Body.(quic.Stream); ok {
