@@ -26,6 +26,7 @@ type MultiDialer struct {
 	SSLVerify         bool
 	TLSConfig         *tls.Config
 	SiteToAlias       *HostMatcher
+	GoogleQUICConfig  *quic.Config
 	GoogleTLSConfig   *tls.Config
 	GoogleValidator   func(*x509.Certificate) bool
 	IPBlackList       lrucache.Cache
@@ -235,18 +236,16 @@ func (d *MultiDialer) dialMultiTLS(network string, hosts []string, port string, 
 	}
 
 	var r connWithError
-	for i := range hosts {
+	for range hosts {
 		r = <-lane
 		if r.e == nil {
-			go func(count int) {
-				var r1 connWithError
-				for ; count > 0; count-- {
-					r1 = <-lane
+			go func() {
+				for r1 := range lane {
 					if r1.c != nil {
 						r1.c.Close()
 					}
 				}
-			}(len(hosts) - 1 - i)
+			}()
 			return r.c, nil
 		}
 	}
@@ -281,12 +280,7 @@ func (d *MultiDialer) DialQuic(network string, address string, tlsConfig *tls.Co
 				isGoogleAddr := false
 				switch {
 				case strings.HasPrefix(alias, "google_"):
-					config = &quic.Config{
-						HandshakeTimeout:            d.Timeout,
-						IdleTimeout:                 d.Timeout,
-						RequestConnectionIDOmission: true,
-						KeepAlive:                   true,
-					}
+					config = d.GoogleQUICConfig
 					isGoogleAddr = true
 				case cfg == nil:
 					config = &quic.Config{
@@ -322,7 +316,7 @@ func (d *MultiDialer) DialQuic(network string, address string, tlsConfig *tls.Co
 						if ip, _, err := net.SplitHostPort(sess.RemoteAddr().String()); err == nil {
 							d.IPBlackList.Set(ip, struct{}{}, time.Time{})
 						}
-						sess.Close(nil)
+						sess.Close()
 						return nil, err
 					}
 					// }
@@ -357,13 +351,11 @@ func (d *MultiDialer) dialMultiQuic(hosts []string, port string, tlsConfig *tls.
 
 			udpConn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: 0})
 			if err != nil {
-				d.TLSConnDuration.Del(host)
-				d.TLSConnError.Set(host, err, time.Now().Add(d.ErrorConnExpiry))
-				lane <- sessWithError{udpConn, nil, err}
+				lane <- sessWithError{nil, nil, err}
 				return
 			}
 
-			udpConn.SetDeadline(time.Now().Add(d.Deadline))
+			udpConn.SetReadDeadline(time.Now().Add(d.Deadline))
 
 			if d.TLSConnReadBuffer > 0 {
 				udpConn.SetReadBuffer(d.TLSConnReadBuffer)
@@ -398,39 +390,38 @@ func (d *MultiDialer) dialMultiQuic(hosts []string, port string, tlsConfig *tls.
 			if err != nil {
 				d.TLSConnDuration.Del(host)
 				d.TLSConnError.Set(host, err, time.Now().Add(d.ErrorConnExpiry))
-				lane <- sessWithError{udpConn, sess, err}
+				lane <- sessWithError{udpConn, nil, err}
 				return
 			}
 			end := time.Now()
 
-			if err != nil {
-				d.TLSConnDuration.Del(host)
-				d.TLSConnError.Set(host, err, end.Add(d.ErrorConnExpiry))
-			} else {
-				d.TLSConnDuration.Set(host, end.Sub(start), end.Add(d.GoodConnExpiry))
-			}
+			d.TLSConnDuration.Set(host, end.Sub(start), end.Add(d.GoodConnExpiry))
 
-			lane <- sessWithError{udpConn, sess, err}
+			lane <- sessWithError{udpConn, sess, nil}
 		}(host, lane)
 	}
 
 	var r sessWithError
-	for i := range hosts {
+	for range hosts {
 		r = <-lane
 		if r.e == nil {
-			go func(count int) {
-				var r1 sessWithError
-				for ; count > 0; count-- {
-					r1 = <-lane
+			go func() {
+				for r1 := range lane {
 					if r1.s != nil {
-						r1.s.Close(nil)
+						r1.s.Close()
 					}
 					if r1.u != nil {
 						r1.u.Close()
 					}
 				}
-			}(len(hosts) - 1 - i)
+			}()
 			return r.s, nil
+		}
+		if r.s != nil {
+			r.s.Close()
+		}
+		if r.u != nil {
+			r.u.Close()
 		}
 	}
 	return nil, r.e

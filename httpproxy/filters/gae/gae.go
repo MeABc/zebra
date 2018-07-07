@@ -144,6 +144,13 @@ func NewFilter(config *Config) (filters.Filter, error) {
 			bytes.Equal(pkp[:], g3ecc)
 	}
 
+	googleQUICConfig := &quic.Config{
+		HandshakeTimeout:            time.Duration(config.Transport.Dialer.Timeout) * time.Second,
+		IdleTimeout:                 time.Duration(config.Transport.IdleConnTimeout) * time.Second,
+		RequestConnectionIDOmission: true,
+		KeepAlive:                   true,
+	}
+
 	directServerName := "fonts.googleapis.com"
 	googleTLSConfig := &tls.Config{
 		MinVersion:         tls.VersionTLS12,
@@ -250,7 +257,7 @@ func NewFilter(config *Config) (filters.Filter, error) {
 	md := &helpers.MultiDialer{
 		KeepAlive:         time.Duration(config.Transport.Dialer.KeepAlive) * time.Second,
 		Timeout:           time.Duration(config.Transport.Dialer.Timeout) * time.Second,
-		Deadline:          time.Duration(config.Transport.ResponseHeaderTimeout+45) * time.Second,
+		Deadline:          time.Duration(config.Transport.IdleConnTimeout) * time.Second,
 		DualStack:         config.Transport.Dialer.DualStack,
 		Resolver:          r,
 		SSLVerify:         config.SSLVerify,
@@ -258,6 +265,7 @@ func NewFilter(config *Config) (filters.Filter, error) {
 		SiteToAlias:       helpers.NewHostMatcherWithString(config.SiteToAlias),
 		IPBlackList:       lrucache.NewLRUCache(1024),
 		HostMap:           hostmap,
+		GoogleQUICConfig:  googleQUICConfig,
 		GoogleTLSConfig:   googleTLSConfig,
 		GoogleValidator:   googleValidator,
 		TLSConnDuration:   lrucache.NewLRUCache(8192),
@@ -334,14 +342,9 @@ func NewFilter(config *Config) (filters.Filter, error) {
 		tr.RoundTripper = &h2quic.RoundTripper{
 			DisableCompression: true,
 			TLSClientConfig:    md.GoogleTLSConfig,
-			QuicConfig: &quic.Config{
-				HandshakeTimeout:            md.Timeout,
-				IdleTimeout:                 md.Timeout,
-				RequestConnectionIDOmission: true,
-				KeepAlive:                   true,
-			},
-			Dial:         md.DialQuic,
-			GetClientKey: GetHostnameCacheKey,
+			QuicConfig:         md.GoogleQUICConfig,
+			Dial:               md.DialQuic,
+			GetClientKey:       GetHostnameCacheKey,
 		}
 	case config.DisableHTTP2 && config.ForceHTTP2:
 		glog.Fatalf("GAE: DisableHTTP2=%v and ForceHTTP2=%v is conflict!", config.DisableHTTP2, config.ForceHTTP2)
