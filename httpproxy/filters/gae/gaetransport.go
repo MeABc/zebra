@@ -246,10 +246,10 @@ func (t *GAETransport) RoundTrip(req *http.Request) (*http.Response, error) {
 				return nil, err
 			}
 			glog.Warningf("GAE: request \"%s\" error: %T(%v), retry...", req.URL.String(), err, err)
-			if err.Error() == "unexpected EOF" {
-				helpers.CloseConnections(t.Transport.RoundTripper)
-				return nil, err
-			}
+			// if err.Error() == "unexpected EOF" {
+			// 	helpers.CloseConnections(t.Transport.RoundTripper)
+			// 	return nil, err
+			// }
 			continue
 		}
 
