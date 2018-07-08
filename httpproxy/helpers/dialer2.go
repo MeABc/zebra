@@ -239,17 +239,18 @@ func (d *MultiDialer) dialMultiTLS(network string, hosts []string, port string, 
 	for range hosts {
 		r = <-lane
 		if r.e == nil {
-			go func() {
+			go func(c chan connWithError) {
 				for r1 := range lane {
 					if r1.c != nil {
 						r1.c.Close()
 					}
 				}
 				close(lane)
-			}()
+			}(lane)
 			return r.c, nil
 		}
 	}
+	close(lane)
 	return nil, r.e
 }
 
@@ -439,7 +440,7 @@ func (d *MultiDialer) dialMultiQuic(hosts []string, port string, tlsConfig *tls.
 	for range hosts {
 		r = <-lane
 		if r.e == nil {
-			go func() {
+			go func(c chan sessWithError) {
 				for r1 := range lane {
 					if r1.s != nil {
 						r1.s.Close()
@@ -449,7 +450,7 @@ func (d *MultiDialer) dialMultiQuic(hosts []string, port string, tlsConfig *tls.
 					}
 				}
 				close(lane)
-			}()
+			}(lane)
 			return r.s, nil
 		}
 		if r.s != nil {
@@ -459,6 +460,7 @@ func (d *MultiDialer) dialMultiQuic(hosts []string, port string, tlsConfig *tls.
 			r.u.Close()
 		}
 	}
+	close(lane)
 	return nil, r.e
 }
 
