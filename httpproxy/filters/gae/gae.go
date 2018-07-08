@@ -208,9 +208,9 @@ func NewFilter(config *Config) (filters.Filter, error) {
 		})
 		ciphers1 = ciphers1[:rand.Intn(len(ciphers1))]
 		ciphers = append(ciphers, ciphers1...)
-		rand.Shuffle(len(ciphers), func(i int, j int) {
-			ciphers[i], ciphers[j] = ciphers[j], ciphers[i]
-		})
+		// rand.Shuffle(len(ciphers), func(i int, j int) {
+		// 	ciphers[i], ciphers[j] = ciphers[j], ciphers[i]
+		// })
 		return ciphers
 	}
 	googleTLSConfig.CipherSuites = pickupCiphers(config.TLSConfig.Ciphers)
