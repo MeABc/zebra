@@ -263,6 +263,10 @@ func (t *GAETransport) RoundTrip(req *http.Request) (*http.Response, error) {
 				glog.Warningf("GAE: %s over qouta, try switch to next appid...", server.Host)
 				t.Servers.ToggleBadServer(server)
 				time.Sleep(retryDelay)
+				if resp.Body != nil {
+					io.Copy(ioutil.Discard, resp.Body)
+					resp.Body.Close()
+				}
 				continue
 			case http.StatusFound,
 				http.StatusBadGateway,
@@ -278,8 +282,16 @@ func (t *GAETransport) RoundTrip(req *http.Request) (*http.Response, error) {
 						}
 					}
 				}
+				if resp.Body != nil {
+					io.Copy(ioutil.Discard, resp.Body)
+					resp.Body.Close()
+				}
 				continue
 			case http.StatusBadRequest:
+				if resp.Body != nil {
+					io.Copy(ioutil.Discard, resp.Body)
+					resp.Body.Close()
+				}
 				continue
 			default:
 				return resp, nil
