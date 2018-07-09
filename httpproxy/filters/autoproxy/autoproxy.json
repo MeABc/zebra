@@ -140,7 +140,7 @@
 	},
 	"IndexFiles": {
 		"Enabled": true,
-		"SeverName": "",
+		"ServerName": "",
 		"Files": [
 			"proxy.pac",
 			"GoProxyAPN.mobileconfig",
