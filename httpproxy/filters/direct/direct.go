@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -182,6 +184,10 @@ func (f *Filter) RoundTrip(ctx context.Context, req *http.Request) (context.Cont
 		resp, err := f.transport.RoundTrip(req)
 
 		if err != nil {
+			if resp != nil && resp.Body != nil {
+				io.Copy(ioutil.Discard, resp.Body)
+				resp.Body.Close()
+			}
 			return ctx, nil, err
 		}
 
