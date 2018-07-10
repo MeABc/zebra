@@ -1,15 +1,17 @@
 package helpers
 
 import (
+	"context"
 	"fmt"
 	"net"
+	"time"
 
 	"github.com/MeABc/glog"
 )
 
 type Dialer struct {
 	Dialer interface {
-		Dial(network, addr string) (net.Conn, error)
+		DialContext(ctx context.Context, network, address string) (net.Conn, error)
 	}
 
 	Resolver *Resolver
@@ -33,14 +35,14 @@ func (d *Dialer) Dial(network, address string) (conn net.Conn, err error) {
 		}
 	}
 
-	return d.Dialer.Dial(network, address)
+	return d.Dialer.DialContext(context.Background(), network, address)
 }
 
 func (d *Dialer) dialMulti(network, address string, ips []net.IP, port string) (conn net.Conn, err error) {
 	if d.Level <= 1 || len(ips) == 1 {
 		for i, ip := range ips {
 			addr := net.JoinHostPort(ip.String(), port)
-			conn, err := d.Dialer.Dial(network, addr)
+			conn, err := d.Dialer.DialContext(context.Background(), network, addr)
 			if err != nil {
 				if i < len(ips)-1 {
 					continue
@@ -65,7 +67,10 @@ func (d *Dialer) dialMulti(network, address string, ips []net.IP, port string) (
 		lane := make(chan racer, level)
 		for i := 0; i < level; i++ {
 			go func(addr string, c chan<- racer) {
-				conn, err := d.Dialer.Dial(network, addr)
+				ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+				defer cancel()
+
+				conn, err := d.Dialer.DialContext(ctx, network, addr)
 				lane <- racer{conn, err}
 			}(net.JoinHostPort(ips[i].String(), port), lane)
 		}
@@ -74,18 +79,18 @@ func (d *Dialer) dialMulti(network, address string, ips []net.IP, port string) (
 		for j := 0; j < level; j++ {
 			r = <-lane
 			if r.e == nil {
-				go func(count int) {
-					var r1 racer
-					for ; count > 0; count-- {
-						r1 = <-lane
+				go func(c chan racer) {
+					for r1 := range lane {
 						if r1.c != nil {
 							r1.c.Close()
 						}
 					}
-				}(level - 1 - j)
+					close(lane)
+				}(lane)
 				return r.c, nil
 			}
 		}
+		close(lane)
 	}
 
 	return nil, net.UnknownNetworkError("Unkown transport/direct error")
