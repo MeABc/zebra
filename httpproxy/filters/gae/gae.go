@@ -206,8 +206,24 @@ func NewFilter(config *Config) (filters.Filter, error) {
 		rand.Shuffle(len(ciphers1), func(i int, j int) {
 			ciphers1[i], ciphers1[j] = ciphers1[j], ciphers1[i]
 		})
+		ciphers2 := []uint16{}
+		for _, name := range []string{
+			"TLS_AES_128_GCM_SHA256",
+			"TLS_AES_256_GCM_SHA384",
+		} {
+			if !helpers.ContainsString(names, name) {
+				if c := helpers.TLSCipher(name); c != 0 {
+					ciphers2 = append(ciphers2, c)
+				}
+			}
+		}
+		rand.Shuffle(len(ciphers2), func(i int, j int) {
+			ciphers2[i], ciphers2[j] = ciphers2[j], ciphers2[i]
+		})
+		ciphers2 = ciphers2[:rand.Intn(len(ciphers2))]
 		ciphers1 = ciphers1[:rand.Intn(len(ciphers1))]
 		ciphers = append(ciphers, ciphers1...)
+		ciphers = append(ciphers, ciphers2...)
 		// rand.Shuffle(len(ciphers), func(i int, j int) {
 		// 	ciphers[i], ciphers[j] = ciphers[j], ciphers[i]
 		// })
