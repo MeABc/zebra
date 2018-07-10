@@ -469,6 +469,10 @@ func (d *MultiDialer) pickupTLSHosts(hosts []string, n int) []string {
 		return hosts
 	}
 
+	if n > 100 {
+		n = 100
+	}
+
 	type racer struct {
 		host     string
 		duration time.Duration
