@@ -12,11 +12,15 @@ import (
 	"github.com/MeABc/glog"
 )
 
-func ipInIPNetList(ip net.IP, ipnets []*net.IPNet) bool {
+func ipInIPNetList(ip net.IP, ipnets *CNIPListIPNets) bool {
 	if ip == nil {
 		return false
 	}
-	for _, ipNet := range ipnets {
+
+	ipnets.mu.RLock()
+	defer ipnets.mu.RUnlock()
+
+	for _, ipNet := range ipnets.IPNets {
 		if ipNet.Contains(ip) {
 			return true
 		}
@@ -119,6 +123,15 @@ func (f *Filter) cniplistUpdater() {
 			glog.Warningf("%T.PutObject(%#v) error: %v", f.Store, f.CNIPList.Filename, err)
 			continue
 		}
+
+		f.CNIPListIPNets.mu.Lock()
+		f.CNIPListIPNets.IPNets, err = f.legallyParseIPNetList(f.CNIPList.Filename)
+		if err != nil {
+			glog.Fatalf("AUTOPROXY: legallyParseIPNetList error: %v", err)
+		}
+		f.CNIPListIPNets.mu.Unlock()
+
+		f.CNIPListCache.Clear()
 
 		glog.Infof("Update %#v from %#v OK", f.CNIPList.Filename, f.CNIPList.URL.String())
 	}
