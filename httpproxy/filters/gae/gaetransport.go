@@ -82,13 +82,11 @@ func (t *Transport) roundTripQuic(req *http.Request) (*http.Response, error) {
 func (t *Transport) roundTripTLS(req *http.Request) (*http.Response, error) {
 	resp, err := t.RoundTripper.RoundTrip(req)
 
-	if ne, ok := err.(*net.OpError); ok && ne != nil {
-		switch {
-		case ne.Addr == nil:
-			break
-		case ne.Error() == "unexpected EOF":
+	if ne, ok := err.(*net.OpError); ok && ne != nil && ne.Addr != nil {
+		if ne.Error() == "unexpected EOF" {
 			helpers.CloseConnections(t.RoundTripper)
-		case ne.Timeout() || ne.Op == "read":
+		}
+		if ne.Timeout() || ne.Op == "read" {
 			ip, _, _ := net.SplitHostPort(ne.Addr.String())
 			glog.Warningf("GAE %s RoundTrip %s error: %#v, close connection to it", ne.Net, ip, ne.Err)
 			helpers.CloseConnectionByRemoteHost(t.RoundTripper, ip)
