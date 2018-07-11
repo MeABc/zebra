@@ -3,6 +3,7 @@ package autoproxy
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"regexp"
@@ -13,6 +14,13 @@ import (
 	"github.com/MeABc/glog"
 )
 
+func NewCNDomainListDomains() *CNDomainListDomains {
+	c := &CNDomainListDomains{
+		Domains: nil,
+	}
+	return c
+}
+
 func domainMatchList(d string, cd *CNDomainListDomains) bool {
 	if d == "" {
 		return false
@@ -22,7 +30,7 @@ func domainMatchList(d string, cd *CNDomainListDomains) bool {
 	defer cd.mu.RUnlock()
 
 	for _, domain := range cd.Domains {
-		if domain == domain || strings.HasSuffix(d, "."+domain) {
+		if d == domain || strings.HasSuffix(d, "."+domain) {
 			return true
 		}
 	}
@@ -102,6 +110,10 @@ func (f *Filter) cndomainlistUpdater() {
 		resp, err := f.CNDomainList.Transport.RoundTrip(req)
 		if err != nil {
 			glog.Warningf("%T.RoundTrip(%#v) error: %v", f.CNDomainList.Transport, f.CNDomainList.URL.String(), err.Error())
+			if resp != nil && resp.Body != nil {
+				io.Copy(ioutil.Discard, resp.Body)
+				resp.Body.Close()
+			}
 			continue
 		}
 

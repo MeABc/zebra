@@ -51,8 +51,7 @@ func (f *Filter) ProxyPacRoundTrip(ctx context.Context, req *http.Request) (cont
 	buf := new(bytes.Buffer)
 
 	resp, err := f.Store.Get(filename)
-	switch {
-	case os.IsNotExist(err), resp.StatusCode == http.StatusNotFound:
+	if os.IsNotExist(err) || resp.StatusCode == http.StatusNotFound {
 		glog.V(2).Infof("AUTOPROXY ProxyPac: generate %#v", filename)
 		s := fmt.Sprintf(`// User-defined FindProxyForURL
 var whiteList = new Array(
@@ -77,11 +76,15 @@ function FindProxyForURL(url, host) {
     return 'DIRECT';
 }
 `, localhost2, port)
+
 		f.Store.Put(filename, http.Header{}, ioutil.NopCloser(bytes.NewBufferString(s)))
-	case err != nil:
+
+		if resp.Body != nil {
+			resp.Body.Close()
+		}
+	}
+	if err != nil {
 		return ctx, nil, err
-	case resp.Body != nil:
-		resp.Body.Close()
 	}
 
 	if resp, err := f.Store.Get(filename); err == nil {
@@ -186,6 +189,10 @@ func (f *Filter) pacUpdater() {
 		resp, err := f.GFWList.Transport.RoundTrip(req)
 		if err != nil {
 			glog.Warningf("%T.RoundTrip(%#v) error: %v", f.GFWList.Transport, f.GFWList.URL.String(), err.Error())
+			if resp != nil && resp.Body != nil {
+				io.Copy(ioutil.Discard, resp.Body)
+				resp.Body.Close()
+			}
 			continue
 		}
 
@@ -331,9 +338,16 @@ func GFWListDomainsMatch(d string, cd *GFWListDomains) bool {
 	defer cd.mu.RUnlock()
 
 	for _, domain := range cd.Domains {
-		if domain == domain || strings.HasSuffix(d, "."+domain) {
+		if d == domain || strings.HasSuffix(d, "."+domain) {
 			return true
 		}
 	}
 	return false
+}
+
+func NewGFWListDomains() *GFWListDomains {
+	g := &GFWListDomains{
+		Domains: nil,
+	}
+	return g
 }

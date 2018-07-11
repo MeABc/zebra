@@ -3,6 +3,7 @@ package autoproxy
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -11,6 +12,13 @@ import (
 	"../../storage"
 	"github.com/MeABc/glog"
 )
+
+func NewCNIPListIPNets() *CNIPListIPNets {
+	c := &CNIPListIPNets{
+		IPNets: nil,
+	}
+	return c
+}
 
 func ipInIPNetList(ip net.IP, ipnets *CNIPListIPNets) bool {
 	if ip == nil {
@@ -101,6 +109,10 @@ func (f *Filter) cniplistUpdater() {
 		resp, err := f.CNIPList.Transport.RoundTrip(req)
 		if err != nil {
 			glog.Warningf("%T.RoundTrip(%#v) error: %v", f.CNIPList.Transport, f.CNIPList.URL.String(), err.Error())
+			if resp != nil && resp.Body != nil {
+				io.Copy(ioutil.Discard, resp.Body)
+				resp.Body.Close()
+			}
 			continue
 		}
 

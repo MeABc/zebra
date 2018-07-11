@@ -332,6 +332,7 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 			f.GFWList.Transport.Proxy = nil
 		}
 
+		f.GFWListDomains = NewGFWListDomains()
 		f.GFWListDomains.mu.Lock()
 		f.GFWListDomains.Domains, err = f.legallyParseGFWList(f.GFWList.Filename)
 		if err != nil {
@@ -346,7 +347,7 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 			}
 			f0, err := filters.GetFilter(name)
 			if err != nil {
-				glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) for CNIPList.Rule error: %v", name, err)
+				glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) for GFWList.Filter.Rule error: %v", name, err)
 			}
 			f1, ok := f0.(filters.RoundTripFilter)
 			if !ok {
@@ -405,6 +406,7 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 			f.CNIPList.Transport.Proxy = nil
 		}
 
+		f.CNIPListIPNets = NewCNIPListIPNets()
 		f.CNIPListIPNets.mu.Lock()
 		f.CNIPListIPNets.IPNets, err = f.legallyParseIPNetList(f.CNIPList.Filename)
 		if err != nil {
@@ -476,6 +478,7 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 			f.CNDomainList.Transport.Proxy = nil
 		}
 
+		f.CNDomainListDomains = NewCNDomainListDomains()
 		f.CNDomainListDomains.mu.Lock()
 		f.CNDomainListDomains.Domains, err = f.legallyParseDomainList(f.CNDomainList.Filename)
 		if err != nil {
@@ -776,25 +779,32 @@ func (f *Filter) RoundTrip(ctx context.Context, req *http.Request) (context.Cont
 		return f.RoundTrip(ctx, req)
 	}
 
-	switch {
-	case f.SiteFiltersEnabled && req.URL.Scheme == "https":
-		if f1, ok := f.SiteFiltersRules.Lookup(helpers.GetHostName(req)); ok && f1 != nil {
+	host := helpers.GetHostName(req)
+
+	glog.V(3).Infof("%s \"AUTOPROXY RoundTrip %s %s %s %s %s\" - -", req.RemoteAddr, req.URL.Scheme, host, req.Method, req.RequestURI, req.Proto)
+
+	if f.SiteFiltersEnabled {
+		if f1, ok := f.SiteFiltersRules.Lookup(host); ok && f1 != nil {
 			return f1.(filters.RoundTripFilter).RoundTrip(ctx, req)
 		}
-	case f.CNDomainListEnabled && req.URL.Scheme == "https":
-		if f1, ok := f.CNDomainListCache.Get(helpers.GetHostName(req)); ok && f1 != nil {
+	}
+	if f.CNDomainListEnabled {
+		if f1, ok := f.CNDomainListCache.Get(host); ok && f1 != nil {
 			return f1.(filters.RoundTripFilter).RoundTrip(ctx, req)
 		}
-	case f.GFWListEnabled && f.GFWListFilterEnabled && req.URL.Scheme == "https":
-		if f1, ok := f.GFWListFilterCache.Get(helpers.GetHostName(req)); ok && f1 != nil {
+	}
+	if f.GFWListEnabled && f.GFWListFilterEnabled {
+		if f1, ok := f.GFWListFilterCache.Get(host); ok && f1 != nil {
 			return f1.(filters.RoundTripFilter).RoundTrip(ctx, req)
 		}
-	case f.CNIPListEnabled && req.URL.Scheme == "https":
-		if f1, ok := f.CNIPListCache.Get(helpers.GetHostName(req)); ok && f1 != nil {
+	}
+	if f.CNIPListEnabled {
+		if f1, ok := f.CNIPListCache.Get(host); ok && f1 != nil {
 			return f1.(filters.RoundTripFilter).RoundTrip(ctx, req)
 		}
-	case f.RegionFiltersEnabled && req.URL.Scheme == "https":
-		if f1, ok := f.RegionFilterCache.Get(helpers.GetHostName(req)); ok && f1 != nil {
+	}
+	if f.RegionFiltersEnabled {
+		if f1, ok := f.RegionFilterCache.Get(host); ok && f1 != nil {
 			return f1.(filters.RoundTripFilter).RoundTrip(ctx, req)
 		}
 	}
