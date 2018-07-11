@@ -41,7 +41,7 @@ func (f *Filter) IndexFilesRoundTrip(ctx context.Context, req *http.Request) (co
 
 		remote, _, err := net.SplitHostPort(req.RemoteAddr)
 		if err == nil && f.RegionLocator != nil {
-			if country, err := f.RegionLocator.Ipinfo(remote); err == nil {
+			if country, err := f.RegionLocator.IPinfo(remote); err == nil {
 				remote = fmt.Sprintf("%s (%s)", remote, country)
 			}
 		}

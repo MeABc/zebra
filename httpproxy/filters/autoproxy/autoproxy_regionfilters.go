@@ -16,7 +16,7 @@ import (
 	"golang.org/x/time/rate"
 )
 
-type IpinfoHandler struct {
+type IPinfoHandler struct {
 	m            sync.Map     // map[LimiterKey]*rate.Limiter
 	keyURL       atomic.Value // string
 	lenURL       int
@@ -29,7 +29,7 @@ type IpinfoHandler struct {
 	UserAgent    string
 }
 
-func (h *IpinfoHandler) InitIpinfoHandler() {
+func (h *IPinfoHandler) InitIPinfoHandler() {
 	h.lenURL = len(h.URLs)
 	for k := range h.URLs {
 		h.keyURL.Store(k)
@@ -37,7 +37,7 @@ func (h *IpinfoHandler) InitIpinfoHandler() {
 	}
 }
 
-func (h *IpinfoHandler) ToggleUrl() {
+func (h *IPinfoHandler) ToggleUrl() {
 	m := h.keyURL.Load().(string)
 	for k := range h.URLs {
 		if k != m {
@@ -47,7 +47,7 @@ func (h *IpinfoHandler) ToggleUrl() {
 }
 
 func (f *Filter) FindCountryByIP(ip string) (string, error) {
-	country, err := f.RegionLocator.Ipinfo(ip)
+	country, err := f.RegionLocator.IPinfo(ip)
 	if err != nil {
 		return "", err
 	}
@@ -60,7 +60,7 @@ func (f *Filter) FindCountryByIP(ip string) (string, error) {
 	return country, nil
 }
 
-func (h *IpinfoHandler) Ipinfo(ip string) (string, error) {
+func (h *IPinfoHandler) IPinfo(ip string) (string, error) {
 	country := ""
 	if v, ok := h.Cache.GetNotStale(ip); ok {
 		country = v.(string)
@@ -108,7 +108,7 @@ func (h *IpinfoHandler) Ipinfo(ip string) (string, error) {
 	return country, nil
 }
 
-func (h *IpinfoHandler) ipinfoSearch(ipStr string) (string, error) {
+func (h *IPinfoHandler) ipinfoSearch(ipStr string) (string, error) {
 	country := ""
 	u0 := h.keyURL.Load().(string)
 	url := strings.Replace(u0, "%s", ipStr, 1)

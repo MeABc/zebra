@@ -169,7 +169,7 @@ type Filter struct {
 	RegionFiltersRules   map[string]filters.RoundTripFilter
 	RegionFiltersIPRules map[string]filters.RoundTripFilter
 	RegionResolver       *helpers.Resolver
-	RegionLocator        *IpinfoHandler
+	RegionLocator        *IPinfoHandler
 	RegionFilterCache    lrucache.Cache
 }
 
@@ -516,7 +516,7 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 			tr.Proxy = nil
 		}
 
-		f.RegionLocator = &IpinfoHandler{
+		f.RegionLocator = &IPinfoHandler{
 			URLs:         config.RegionFilters.URLs,
 			Cache:        lrucache.NewLRUCache(uint(config.RegionFilters.DNSCacheSize)),
 			CacheTTL:     86400 * time.Second,
@@ -525,7 +525,7 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 			RateLimit:    8,
 			UserAgent:    config.RegionFilters.UserAgent,
 		}
-		f.RegionLocator.InitIpinfoHandler()
+		f.RegionLocator.InitIPinfoHandler()
 
 		f.RegionResolver = &helpers.Resolver{
 			Singleflight: &singleflight.Group{},
