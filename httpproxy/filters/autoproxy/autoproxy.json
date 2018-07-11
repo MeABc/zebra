@@ -161,6 +161,10 @@
 			"Enabled": false,
 			"URL": "socks5://127.0.0.1:1080",
 		},
+		"Filter": {
+			"Enabled": false,
+			"Rule": "gae",
+		},
 	},
 	"MobileConfig": {
 		"Enabled": true,

@@ -95,25 +95,12 @@ function FindProxyForURL(url, host) {
 	}
 
 	if f.GFWListEnabled {
-		resp, err := f.Store.Get(f.GFWList.Filename)
-		if err != nil {
-			glog.Errorf("GetObject(%#v) error: %v", f.GFWList.Filename, err)
-			return ctx, nil, err
-		}
-		defer resp.Body.Close()
-
-		sites, err := parseAutoProxy(resp.Body)
-		if err != nil {
-			glog.Errorf("parseAutoProxy(%#v) error: %v", f.GFWList.Filename, err)
-			return ctx, nil, err
-		}
-
-		sort.Strings(sites)
-
+		f.GFWListDomains.mu.RLock()
 		io.WriteString(buf, "\nvar sites = {\n")
-		for _, site := range sites {
+		for _, site := range f.GFWListDomains.Domains {
 			io.WriteString(buf, "\""+site+"\":1,\n")
 		}
+		f.GFWListDomains.mu.RUnlock()
 		io.WriteString(buf, "\"google.com\":1\n")
 		io.WriteString(buf, "}\n")
 
@@ -230,6 +217,13 @@ func (f *Filter) pacUpdater() {
 			continue
 		}
 
+		f.GFWListDomains.mu.Lock()
+		f.GFWListDomains.Domains, err = f.legallyParseGFWList(f.GFWList.Filename)
+		if err != nil {
+			glog.Fatalf("AUTOPROXY: legallyParseGFWList error: %v", err)
+		}
+		f.GFWListDomains.mu.Unlock()
+
 		f.ProxyPacCache.Clear()
 
 		glog.Infof("Update %#v from %#v OK", f.GFWList.Filename, f.GFWList.URL.String())
@@ -306,4 +300,40 @@ func parseAutoProxy(r io.Reader) ([]string, error) {
 	}
 
 	return sites1, nil
+}
+
+// parse gfwlist.txt to GFWList
+func (f *Filter) legallyParseGFWList(filename string) ([]string, error) {
+	resp, err := f.Store.Get(filename)
+	if err != nil {
+		glog.Errorf("GetObject(%#v) error: %v", filename, err)
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	sites, err := parseAutoProxy(resp.Body)
+	if err != nil {
+		glog.Errorf("parseAutoProxy(%#v) error: %v", filename, err)
+		return nil, err
+	}
+
+	sort.Strings(sites)
+
+	return sites, nil
+}
+
+func GFWListDomainsMatch(d string, cd *GFWListDomains) bool {
+	if d == "" {
+		return false
+	}
+
+	cd.mu.RLock()
+	defer cd.mu.RUnlock()
+
+	for _, domain := range cd.Domains {
+		if domain == domain || strings.HasSuffix(d, "."+domain) {
+			return true
+		}
+	}
+	return false
 }

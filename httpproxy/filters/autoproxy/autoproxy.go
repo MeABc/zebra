@@ -91,6 +91,10 @@ type Config struct {
 			Enabled bool
 			URL     string
 		}
+		Filter struct {
+			Enabled bool
+			Rule    string
+		}
 	}
 	MobileConfig struct {
 		Enabled bool
@@ -146,6 +150,11 @@ type CNDomainListDomains struct {
 	Domains []string
 }
 
+type GFWListDomains struct {
+	mu      sync.RWMutex
+	Domains []string
+}
+
 type Filter struct {
 	Config
 	Store                storage.Store
@@ -155,9 +164,13 @@ type Filter struct {
 	IndexFilesSet        map[string]struct{}
 	ProxyPacCache        lrucache.Cache
 	GFWListEnabled       bool
+	GFWListFilterEnabled bool
 	CNIPListEnabled      bool
 	CNDomainListEnabled  bool
 	GFWList              *GFWList
+	GFWListDomains       *GFWListDomains
+	GFWListFilterCache   lrucache.Cache
+	GFWListFilterRule    filters.RoundTripFilter
 	CNIPList             *CNIPList
 	CNDomainList         *CNDomainList
 	CNDomainListRule     filters.RoundTripFilter
@@ -255,6 +268,7 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 		IndexFilesSet:        make(map[string]struct{}),
 		ProxyPacCache:        lrucache.NewLRUCache(32),
 		GFWListEnabled:       config.GFWList.Enabled,
+		GFWListFilterEnabled: config.GFWList.Filter.Enabled,
 		CNIPListEnabled:      config.CNIPList.Enabled,
 		CNDomainListEnabled:  config.CNDomainList.Enabled,
 		MobileConfigEnabled:  config.MobileConfig.Enabled,
@@ -316,6 +330,30 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 			f.GFWList.Transport.Dial = dialer1.Dial
 			f.GFWList.Transport.DialTLS = nil
 			f.GFWList.Transport.Proxy = nil
+		}
+
+		f.GFWListDomains.mu.Lock()
+		f.GFWListDomains.Domains, err = f.legallyParseGFWList(f.GFWList.Filename)
+		if err != nil {
+			glog.Fatalf("AUTOPROXY: legallyParseGFWList error: %v", err)
+		}
+		f.GFWListDomains.mu.Unlock()
+
+		if config.GFWList.Filter.Enabled {
+			name := config.GFWList.Filter.Rule
+			if name == "" {
+				name = "direct"
+			}
+			f0, err := filters.GetFilter(name)
+			if err != nil {
+				glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) for CNIPList.Rule error: %v", name, err)
+			}
+			f1, ok := f0.(filters.RoundTripFilter)
+			if !ok {
+				glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) return %T, not a RoundTripFilter", name, f0)
+			}
+			f.GFWListFilterRule = f1
+			f.GFWListFilterCache = lrucache.NewLRUCache(32)
 		}
 
 		go pacOnceUpdater.Do(f.pacUpdater)
@@ -638,6 +676,24 @@ func (f *Filter) Request(ctx context.Context, req *http.Request) (context.Contex
 		}
 	}
 
+	if f.GFWListEnabled && f.GFWListFilterEnabled {
+		if f1, ok := f.GFWListFilterCache.Get(host); ok {
+			if f1 != nil {
+				glog.V(3).Infof("%s \"AUTOPROXY GFWFilter Cache %s %s %s\" with %T", req.RemoteAddr, req.Method, req.URL.String(), req.Proto, f1)
+				filters.SetRoundTripFilter(ctx, f1.(filters.RoundTripFilter))
+				return ctx, req, nil
+			}
+		}
+
+		if GFWListDomainsMatch(host, f.GFWListDomains) {
+			rule := f.GFWListFilterRule
+			glog.V(2).Infof("%s \"AUTOPROXY GFWFilter %s %s %s\" with %T", req.RemoteAddr, req.Method, req.URL.String(), req.Proto, rule)
+			f.GFWListFilterCache.Set(host, rule, time.Now().Add(time.Hour))
+			filters.SetRoundTripFilter(ctx, rule)
+			return ctx, req, nil
+		}
+	}
+
 	if f.CNIPListEnabled {
 		if f1, ok := f.CNIPListCache.Get(host); ok {
 			if f1 != nil {
@@ -726,7 +782,11 @@ func (f *Filter) RoundTrip(ctx context.Context, req *http.Request) (context.Cont
 			return f1.(filters.RoundTripFilter).RoundTrip(ctx, req)
 		}
 	case f.CNDomainListEnabled && req.URL.Scheme == "https":
-		if f1, ok := f.CNIPListCache.Get(helpers.GetHostName(req)); ok && f1 != nil {
+		if f1, ok := f.CNDomainListCache.Get(helpers.GetHostName(req)); ok && f1 != nil {
+			return f1.(filters.RoundTripFilter).RoundTrip(ctx, req)
+		}
+	case f.GFWListEnabled && f.GFWListFilterEnabled && req.URL.Scheme == "https":
+		if f1, ok := f.GFWListFilterCache.Get(helpers.GetHostName(req)); ok && f1 != nil {
 			return f1.(filters.RoundTripFilter).RoundTrip(ctx, req)
 		}
 	case f.CNIPListEnabled && req.URL.Scheme == "https":
