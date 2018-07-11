@@ -353,8 +353,7 @@ func NewFilter(config *Config) (filters.Filter, error) {
 		t1.TLSClientConfig = md.GoogleTLSConfig
 	}
 
-	switch {
-	case config.EnableQuic:
+	if config.EnableQuic {
 		tr.RoundTripper = &h2quic.RoundTripper{
 			DisableCompression: true,
 			TLSClientConfig:    md.GoogleTLSConfig,
@@ -362,23 +361,23 @@ func NewFilter(config *Config) (filters.Filter, error) {
 			Dial:               md.DialQuic,
 			GetClientKey:       GetHostnameCacheKey,
 		}
-	case config.DisableHTTP2 && config.ForceHTTP2:
+	} else if config.DisableHTTP2 && config.ForceHTTP2 {
 		glog.Fatalf("GAE: DisableHTTP2=%v and ForceHTTP2=%v is conflict!", config.DisableHTTP2, config.ForceHTTP2)
-	case config.Transport.Proxy.Enabled && config.ForceHTTP2:
+	} else if config.Transport.Proxy.Enabled && config.ForceHTTP2 {
 		glog.Fatalf("GAE: Proxy.Enabled=%v and ForceHTTP2=%v is conflict!", config.Transport.Proxy.Enabled, config.ForceHTTP2)
-	case config.ForceHTTP2:
+	} else if config.ForceHTTP2 {
 		tr.RoundTripper = &http2.Transport{
 			DialTLS:            md.DialTLS2,
 			TLSClientConfig:    md.GoogleTLSConfig,
 			DisableCompression: true,
 		}
-	case !config.DisableHTTP2:
+	} else if !config.DisableHTTP2 {
 		err := http2.ConfigureTransport(t1)
 		if err != nil {
 			glog.Warningf("GAE: Error enabling Transport HTTP/2 support: %v", err)
 		}
 		tr.RoundTripper = t1
-	default:
+	} else {
 		tr.RoundTripper = t1
 	}
 
