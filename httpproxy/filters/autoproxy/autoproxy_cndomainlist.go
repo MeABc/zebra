@@ -13,9 +13,16 @@ import (
 	"github.com/MeABc/glog"
 )
 
-func domainMatchList(domain string, domainList []string) bool {
-	for _, _domain := range domainList {
-		if _domain == domain || strings.HasSuffix(domain, "."+_domain) {
+func domainMatchList(d string, cd *CNDomainListDomains) bool {
+	if d == "" {
+		return false
+	}
+
+	cd.mu.RLock()
+	defer cd.mu.RUnlock()
+
+	for _, domain := range cd.Domains {
+		if domain == domain || strings.HasSuffix(d, "."+domain) {
 			return true
 		}
 	}
@@ -130,6 +137,15 @@ func (f *Filter) cndomainlistUpdater() {
 			glog.Warningf("%T.PutObject(%#v) error: %v", f.Store, f.CNDomainList.Filename, err)
 			continue
 		}
+
+		f.CNDomainListDomains.mu.Lock()
+		f.CNDomainListDomains.Domains, err = f.legallyParseDomainList(f.CNDomainList.Filename)
+		if err != nil {
+			glog.Fatalf("AUTOPROXY: legallyParseDomainList error: %v", err)
+		}
+		f.CNDomainListDomains.mu.Unlock()
+
+		f.CNDomainListCache.Clear()
 
 		glog.Infof("Update %#v from %#v OK", f.CNDomainList.Filename, f.CNDomainList.URL.String())
 	}

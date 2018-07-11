@@ -141,6 +141,11 @@ type CNIPListIPNets struct {
 	IPNets []*net.IPNet
 }
 
+type CNDomainListDomains struct {
+	mu      sync.RWMutex
+	Domains []string
+}
+
 type Filter struct {
 	Config
 	Store                storage.Store
@@ -157,7 +162,7 @@ type Filter struct {
 	CNDomainList         *CNDomainList
 	CNDomainListRule     filters.RoundTripFilter
 	CNDomainListCache    lrucache.Cache
-	CNDomainListDomains  []string
+	CNDomainListDomains  *CNDomainListDomains
 	CNDomainListResolver *helpers.Resolver
 	CNIPListRule         filters.RoundTripFilter
 	CNIPListIPNets       *CNIPListIPNets
@@ -433,10 +438,12 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 			f.CNDomainList.Transport.Proxy = nil
 		}
 
-		f.CNDomainListDomains, err = f.legallyParseDomainList(f.CNDomainList.Filename)
+		f.CNDomainListDomains.mu.Lock()
+		f.CNDomainListDomains.Domains, err = f.legallyParseDomainList(f.CNDomainList.Filename)
 		if err != nil {
 			glog.Fatalf("AUTOPROXY: legallyParseDomainList error: %v", err)
 		}
+		f.CNDomainListDomains.mu.Unlock()
 
 		name := config.CNDomainList.Rule
 		if name == "" {
