@@ -108,24 +108,23 @@ func (d *MultiDialer) DialTLS2(network, address string, cfg *tls.Config) (net.Co
 					var config *tls.Config
 
 					isGoogleAddr := false
-					switch {
-					case strings.HasPrefix(alias, "google_"):
+					if strings.HasPrefix(alias, "google_") {
 						config = d.GoogleTLSConfig
 						isGoogleAddr = true
-					case cfg == nil:
+					} else if cfg == nil {
 						config = &tls.Config{
 							InsecureSkipVerify: !d.SSLVerify,
 							ServerName:         address,
 						}
-					default:
+					} else {
 						config = cfg
 					}
 					glog.V(3).Infof("MULTIDIALER DialTLS(%#v, %#v) alais=%#v set tls.Config=%#v", network, address, alias, config)
 
-					switch {
-					case d.Resolver.ForceIPv6:
+					if d.Resolver.ForceIPv6 {
 						network = "tcp6"
-					case d.Resolver.DisableIPv6:
+					}
+					if d.Resolver.DisableIPv6 {
 						network = "tcp4"
 					}
 					conn, err := d.dialMultiTLS(network, hosts, port, config)
@@ -140,17 +139,16 @@ func (d *MultiDialer) DialTLS2(network, address string, cfg *tls.Config) (net.Co
 							}
 							cert := certs[1]
 							glog.V(3).Infof("MULTIDIALER DialTLS(%#v, %#v) verify cert=%v", network, address, cert.Subject)
-							switch {
-							case d.GoogleValidator != nil && !d.GoogleValidator(cert):
-								fallthrough
-							case !strings.HasPrefix(cert.Subject.CommonName, "Google "):
-								err := fmt.Errorf("Wrong certificate of %s: Issuer=%v, SubjectKeyId=%#v", conn.RemoteAddr(), cert.Subject, cert.SubjectKeyId)
-								glog.Warningf("MultiDailer: %v", err)
-								if ip, _, err := net.SplitHostPort(conn.RemoteAddr().String()); err == nil {
-									d.IPBlackList.Set(ip, struct{}{}, time.Time{})
+							if d.GoogleValidator != nil && !d.GoogleValidator(cert) {
+								if !strings.HasPrefix(cert.Subject.CommonName, "Google ") {
+									err := fmt.Errorf("Wrong certificate of %s: Issuer=%v, SubjectKeyId=%#v", conn.RemoteAddr(), cert.Subject, cert.SubjectKeyId)
+									glog.Warningf("MultiDailer: %v", err)
+									if ip, _, err := net.SplitHostPort(conn.RemoteAddr().String()); err == nil {
+										d.IPBlackList.Set(ip, struct{}{}, time.Time{})
+									}
+									conn.Close()
+									return nil, err
 								}
-								conn.Close()
-								return nil, err
 							}
 						}
 					}
@@ -280,18 +278,17 @@ func (d *MultiDialer) DialQuic(network string, address string, tlsConfig *tls.Co
 				var config *quic.Config
 
 				isGoogleAddr := false
-				switch {
-				case strings.HasPrefix(alias, "google_"):
+				if strings.HasPrefix(alias, "google_") {
 					config = d.GoogleQUICConfig
 					isGoogleAddr = true
-				case cfg == nil:
+				} else if cfg == nil {
 					config = &quic.Config{
 						HandshakeTimeout:            d.Timeout,
 						IdleTimeout:                 d.Timeout,
 						RequestConnectionIDOmission: true,
 						KeepAlive:                   true,
 					}
-				default:
+				} else {
 					config = cfg
 				}
 				glog.V(3).Infof("DialQuic(%#v) alais=%#v set quic.Config=%#v", address, alias, config)
@@ -309,17 +306,16 @@ func (d *MultiDialer) DialQuic(network string, address string, tlsConfig *tls.Co
 					}
 					cert := certs[1]
 					glog.V(3).Infof("MULTIDIALER DialQuic(%#v, %#v) verify cert=%v", network, address, cert.Subject)
-					switch {
-					case d.GoogleValidator != nil && !d.GoogleValidator(cert):
-						fallthrough
-					case !strings.HasPrefix(cert.Subject.CommonName, "Google "):
-						err := fmt.Errorf("Wrong certificate of %s: Issuer=%v, SubjectKeyId=%#v", sess.RemoteAddr(), cert.Subject, cert.SubjectKeyId)
-						glog.Warningf("MultiDailer: %v", err)
-						if ip, _, err := net.SplitHostPort(sess.RemoteAddr().String()); err == nil {
-							d.IPBlackList.Set(ip, struct{}{}, time.Time{})
+					if d.GoogleValidator != nil && !d.GoogleValidator(cert) {
+						if !strings.HasPrefix(cert.Subject.CommonName, "Google ") {
+							err := fmt.Errorf("Wrong certificate of %s: Issuer=%v, SubjectKeyId=%#v", sess.RemoteAddr(), cert.Subject, cert.SubjectKeyId)
+							glog.Warningf("MultiDailer: %v", err)
+							if ip, _, err := net.SplitHostPort(sess.RemoteAddr().String()); err == nil {
+								d.IPBlackList.Set(ip, struct{}{}, time.Time{})
+							}
+							sess.Close()
+							return nil, err
 						}
-						sess.Close()
-						return nil, err
 					}
 					// }
 				}
