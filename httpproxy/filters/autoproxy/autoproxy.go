@@ -812,20 +812,21 @@ func (f *Filter) RoundTrip(ctx context.Context, req *http.Request) (context.Cont
 	if f.IndexFilesEnabled {
 		if (req.URL.Host == "" && req.RequestURI[0] == '/') || (f.IndexServerName != "" && req.Host == f.IndexServerName) {
 			if _, ok := f.IndexFilesSet[req.URL.Path[1:]]; ok || req.URL.Path == "/" {
-				switch {
-				case f.GFWListEnabled && strings.HasSuffix(req.URL.Path, ".pac"):
+
+				if f.GFWListEnabled && strings.HasSuffix(req.URL.Path, ".pac") {
 					glog.V(2).Infof("%s \"AUTOPROXY ProxyPac %s %s %s\" - -", req.RemoteAddr, req.Method, req.RequestURI, req.Proto)
 					return f.ProxyPacRoundTrip(ctx, req)
-				case f.MobileConfigEnabled && strings.HasSuffix(req.URL.Path, ".mobileconfig"):
+				}
+				if f.MobileConfigEnabled && strings.HasSuffix(req.URL.Path, ".mobileconfig") {
 					glog.V(2).Infof("%s \"AUTOPROXY ProxyMobileConfig %s %s %s\" - -", req.RemoteAddr, req.Method, req.RequestURI, req.Proto)
 					return f.ProxyMobileConfigRoundTrip(ctx, req)
-				case f.IPHTMLEnabled && req.URL.Path == "/ip.html":
+				}
+				if f.IPHTMLEnabled && req.URL.Path == "/ip.html" {
 					glog.V(2).Infof("%s \"AUTOPROXY IPHTML %s %s %s\" - -", req.RemoteAddr, req.Method, req.RequestURI, req.Proto)
 					return f.IPHTMLRoundTrip(ctx, req)
-				default:
-					glog.V(2).Infof("%s \"AUTOPROXY IndexFiles %s %s %s\" - -", req.RemoteAddr, req.Method, req.RequestURI, req.Proto)
-					return f.IndexFilesRoundTrip(ctx, req)
 				}
+				glog.V(2).Infof("%s \"AUTOPROXY IndexFiles %s %s %s\" - -", req.RemoteAddr, req.Method, req.RequestURI, req.Proto)
+				return f.IndexFilesRoundTrip(ctx, req)
 			}
 		}
 	}
