@@ -290,7 +290,7 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 				InsecureSkipVerify: false,
 				ClientSessionCache: tls.NewLRUClientSessionCache(1000),
 			},
-			TLSHandshakeTimeout: 4 * time.Second,
+			TLSHandshakeTimeout: 8 * time.Second,
 		}
 
 		if config.GFWList.Proxy.Enabled {
@@ -340,7 +340,7 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 				InsecureSkipVerify: false,
 				ClientSessionCache: tls.NewLRUClientSessionCache(1000),
 			},
-			TLSHandshakeTimeout: 4 * time.Second,
+			TLSHandshakeTimeout: 8 * time.Second,
 		}
 
 		if config.CNIPList.Proxy.Enabled {
@@ -410,7 +410,7 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 				InsecureSkipVerify: false,
 				ClientSessionCache: tls.NewLRUClientSessionCache(1000),
 			},
-			TLSHandshakeTimeout: 4 * time.Second,
+			TLSHandshakeTimeout: 8 * time.Second,
 		}
 
 		if config.CNDomainList.Proxy.Enabled {
@@ -501,7 +501,7 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 				InsecureSkipVerify: false,
 				ClientSessionCache: tls.NewLRUClientSessionCache(1000),
 			},
-			TLSHandshakeTimeout: 4 * time.Second,
+			TLSHandshakeTimeout: 8 * time.Second,
 		}
 
 		if config.RegionFilters.Proxy.Enabled {
