@@ -282,7 +282,7 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 			}
 		}
 
-		d.Resolver.DNSExpiry = time.Duration(config.GFWList.Duration*2) * time.Second
+		d.Resolver.DNSExpiry = time.Duration(config.GFWList.Duration) * time.Second
 
 		f.GFWList.Transport = &http.Transport{
 			Dial: d.Dial,
@@ -330,9 +330,9 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 			}
 		}
 
-		d.Resolver.DNSExpiry = time.Duration(config.CNIPList.Duration*2) * time.Second
+		d.Resolver.DNSExpiry = time.Duration(config.CNIPList.Duration) * time.Second
 		f.CNIPListResolver = d.Resolver
-		f.CNIPListResolver.LRUCache = lrucache.NewLRUCache(1000)
+		f.CNIPListResolver.LRUCache = lrucache.NewLRUCache(32)
 
 		f.CNIPList.Transport = &http.Transport{
 			Dial: d.Dial,
@@ -377,7 +377,7 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 			glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) return %T, not a RoundTripFilter", name, f0)
 		}
 		f.CNIPListRule = f1
-		f.CNIPListCache = lrucache.NewLRUCache(4096)
+		f.CNIPListCache = lrucache.NewLRUCache(32)
 
 		go cniplistOnceUpdater.Do(f.cniplistUpdater)
 	}
@@ -400,9 +400,9 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 			}
 		}
 
-		d.Resolver.DNSExpiry = time.Duration(config.CNDomainList.Duration*2) * time.Second
+		d.Resolver.DNSExpiry = time.Duration(config.CNDomainList.Duration) * time.Second
 		f.CNDomainListResolver = d.Resolver
-		f.CNDomainListResolver.LRUCache = lrucache.NewLRUCache(1000)
+		f.CNDomainListResolver.LRUCache = lrucache.NewLRUCache(32)
 
 		f.CNDomainList.Transport = &http.Transport{
 			Dial: d.Dial,
@@ -447,7 +447,7 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 			glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) return %T, not a RoundTripFilter", name, f0)
 		}
 		f.CNDomainListRule = f1
-		f.CNDomainListCache = lrucache.NewLRUCache(4096)
+		f.CNDomainListCache = lrucache.NewLRUCache(32)
 
 		go cndomainlistOnceUpdater.Do(f.cndomainlistUpdater)
 	}
