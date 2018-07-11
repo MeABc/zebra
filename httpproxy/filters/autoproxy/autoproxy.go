@@ -271,7 +271,6 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 				Singleflight: &singleflight.Group{},
 				LRUCache:     lrucache.NewLRUCache(32),
 			},
-			Level: 1,
 		}
 
 		if config.GFWList.EnableRemoteDNS {
@@ -319,7 +318,6 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 				Singleflight: &singleflight.Group{},
 				LRUCache:     lrucache.NewLRUCache(32),
 			},
-			Level: 1,
 		}
 
 		if config.CNIPList.EnableRemoteDNS {
@@ -389,7 +387,6 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 				Singleflight: &singleflight.Group{},
 				LRUCache:     lrucache.NewLRUCache(32),
 			},
-			Level: 1,
 		}
 
 		if config.CNDomainList.EnableRemoteDNS {
@@ -482,7 +479,6 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 				Singleflight: &singleflight.Group{},
 				LRUCache:     lrucache.NewLRUCache(32),
 			},
-			Level: 1,
 		}
 
 		if config.RegionFilters.EnableRemoteDNS {
