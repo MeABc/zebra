@@ -336,9 +336,8 @@ func GetCommonName(domain string) string {
 	if ip := net.ParseIP(domain); ip != nil {
 		if ip.To4() == nil {
 			return strings.Replace(ip.String(), ":", "-", -1)
-		} else {
-			return domain
 		}
+		return domain
 	}
 
 	parts := strings.Split(domain, ".")
