@@ -182,12 +182,12 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		if addr, err := helpers.ReflectRemoteAddrFromResponse(resp); err == nil {
 			if ip, _, err := net.SplitHostPort(addr); err == nil {
 				var duration time.Duration
-				switch {
-				case resp.StatusCode == http.StatusBadGateway && bytes.Contains(body, []byte("Please try again in 30 seconds.")):
+
+				if resp.StatusCode == http.StatusBadGateway && bytes.Contains(body, []byte("Please try again in 30 seconds.")) {
 					duration = 1 * time.Hour
-				case resp.StatusCode >= 301 && resp.Header.Get("Location") != "":
+				} else if resp.StatusCode >= 301 && resp.Header.Get("Location") != "" {
 					duration = 2 * time.Hour
-				case resp.StatusCode == http.StatusNotFound && bytes.Contains(body, []byte("<ins>That’s all we know.</ins>")):
+				} else if resp.StatusCode == http.StatusNotFound && bytes.Contains(body, []byte("<ins>That’s all we know.</ins>")) {
 					server := resp.Header.Get("Server")
 					if server != "gws" && !strings.HasPrefix(server, "gvs") {
 						if t.MultiDialer.TLSConnDuration.Len() > 10 {
@@ -322,25 +322,26 @@ func (t *GAETransport) RoundTrip(req *http.Request) (*http.Response, error) {
 				return nil, err
 			}
 			resp1.Body.Close()
-			switch {
-			case bytes.Contains(body, []byte("DEADLINE_EXCEEDED")):
+
+			if bytes.Contains(body, []byte("DEADLINE_EXCEEDED")) {
 				//FIXME: deadline += 10 * time.Second
 				glog.Warningf("GAE: %s urlfetch %#v get DEADLINE_EXCEEDED, retry with deadline=%s...", req1.Host, req.URL.String(), deadline)
 				time.Sleep(deadline)
 				continue
-			case bytes.Contains(body, []byte("ver quota")):
+			}
+			if bytes.Contains(body, []byte("ver quota")) {
 				glog.Warningf("GAE: %s urlfetch %#v get over quota, retry...", req1.Host, req.URL.String())
 				t.Servers.ToggleBadServer(server)
 				time.Sleep(retryDelay)
 				continue
-			case bytes.Contains(body, []byte("urlfetch: CLOSED")):
+			}
+			if bytes.Contains(body, []byte("urlfetch: CLOSED")) {
 				glog.Warningf("GAE: %s urlfetch %#v get urlfetch: CLOSED, retry...", req1.Host, req.URL.String())
 				time.Sleep(retryDelay)
 				continue
-			default:
-				resp1.Body = ioutil.NopCloser(bytes.NewReader(body))
-				return resp1, nil
 			}
+			resp1.Body = ioutil.NopCloser(bytes.NewReader(body))
+			return resp1, nil
 		default:
 			return resp1, nil
 		}
