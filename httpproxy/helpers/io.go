@@ -19,8 +19,17 @@ var (
 )
 
 func IOCopy(dst io.Writer, src io.Reader) (written int64, err error) {
+	if wt, ok := src.(io.WriterTo); ok {
+		return wt.WriteTo(dst)
+	}
+
+	if rt, ok := dst.(io.ReaderFrom); ok {
+		return rt.ReadFrom(src)
+	}
+
 	buf := bufpool.Get().([]byte)
+	defer bufpool.Put(buf)
 	written, err = io.CopyBuffer(dst, src, buf)
-	bufpool.Put(buf)
+
 	return written, err
 }
