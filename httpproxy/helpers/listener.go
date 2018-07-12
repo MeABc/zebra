@@ -11,7 +11,9 @@ import (
 )
 
 const (
-	backlog = 1024
+	backlog                        = 1024
+	defaultListenerReadBufferSize  = 1024 * 1024
+	defaultListenerWriteBufferSize = 1024 * 1024
 )
 
 type Listener interface {
@@ -62,7 +64,10 @@ func ListenTCP(network, addr string, opts *ListenOptions) (Listener, error) {
 	}
 
 	var keepAlivePeriod time.Duration
-	var readBufferSize, writeBufferSize int
+
+	readBufferSize := defaultListenerReadBufferSize
+	writeBufferSize := defaultListenerWriteBufferSize
+
 	if opts != nil {
 		if opts.KeepAlivePeriod > 0 {
 			keepAlivePeriod = opts.KeepAlivePeriod
