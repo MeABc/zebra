@@ -80,6 +80,8 @@ func (t *Transport) roundTripQuic(req *http.Request) (*http.Response, error) {
 }
 
 func (t *Transport) roundTripTLS(req *http.Request) (*http.Response, error) {
+	req = req.WithContext(context.WithValue(req.Context(), responseHeaderTimeoutKey{}, 8*time.Second))
+
 	resp, err := t.RoundTripper.RoundTrip(req)
 
 	if ne, ok := err.(*net.OpError); ok && ne != nil && ne.Addr != nil {
@@ -135,6 +137,20 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 					}
 				}
 			}
+
+			if ne, ok := err.(*net.OpError); ok && ne != nil && ne.Addr != nil {
+				if ne.Op == "read" && ne.Err.Error() == "context canceled" || ne.Err.Error() == "context deadline exceeded" {
+					if ip, _, err := net.SplitHostPort(ne.Addr.String()); err == nil {
+						helpers.CloseConnectionByRemoteHost(t.RoundTripper, ip)
+						if t.MultiDialer != nil {
+							duration := 5 * time.Minute
+							glog.Warningf("GAE: %s is context.Canceled, add to blacklist for %v", ip, duration)
+							t.MultiDialer.IPBlackList.Set(ip, struct{}{}, time.Now().Add(duration))
+						}
+					}
+				}
+			}
+
 			continue
 		}
 
