@@ -31,8 +31,6 @@ func (h Handler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	req.Body = &helpers.FakeCloseReadCloser{ReadCloser: req.Body}
 	defer req.Body.(*helpers.FakeCloseReadCloser).RealClose()
 
-	remoteAddr := req.RemoteAddr
-
 	// Prepare filter.Context
 	ctx := filters.NewContext(req.Context(), h, h.Listener, rw, h.Branding)
 	req = req.WithContext(ctx)
@@ -65,6 +63,10 @@ func (h Handler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		}
 	}
 
+	remoteAddr := req.RemoteAddr
+	method := req.Method
+	url := req.URL.String()
+
 	// Filter Request
 	for _, f := range h.RequestFilters {
 		ctx, req, err = f.Request(ctx, req)
@@ -73,17 +75,13 @@ func (h Handler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		}
 		if err != nil {
 			if err != io.EOF {
-				glog.Errorf("%s Filter Request %T error: %+v", remoteAddr, f, err)
+				glog.Errorf("%s \"Filter Request %T %s %s\" error: %+v", remoteAddr, f, method, url, err)
 			}
 			return
 		}
 		// Update context for request
 		req = req.WithContext(ctx)
 	}
-
-	// if req.Body != nil {
-	// 	defer req.Body.Close()
-	// }
 
 	// Filter Request -> Response
 	var resp *http.Response
@@ -95,7 +93,7 @@ func (h Handler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		// Unexcepted errors
 		if err != nil {
 			filters.SetRoundTripFilter(ctx, f)
-			glog.Errorf("%s Filter RoundTrip %T error: %+v", remoteAddr, f, err)
+			glog.Errorf("%s \"Filter RoundTrip %T %s %s\" error: %+v", remoteAddr, f, method, url, err)
 			http.Error(rw, h.FormatError(ctx, err), http.StatusBadGateway)
 			return
 		}
@@ -116,7 +114,7 @@ func (h Handler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		}
 		ctx, resp, err = f.Response(ctx, resp)
 		if err != nil {
-			glog.Errorln("%s Filter %T Response error: %+v", remoteAddr, f, err)
+			glog.Errorf("%s \"Filter Response %T %s %s\" error: %+v", remoteAddr, f, method, url, err)
 			http.Error(rw, h.FormatError(ctx, err), http.StatusBadGateway)
 			return
 		}
@@ -125,7 +123,7 @@ func (h Handler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	if resp == nil {
-		glog.Errorln("%s Handler %#v Response empty response", remoteAddr, h)
+		glog.Errorf("%s Handler %#v Response empty response", remoteAddr, h)
 		http.Error(rw, h.FormatError(ctx, fmt.Errorf("empty response")), http.StatusBadGateway)
 		return
 	}
