@@ -53,25 +53,15 @@ func (r *Resolver) LookupIP(name string) ([]net.IP, error) {
 			case []net.IP:
 				return v.([]net.IP), nil
 			case string:
-				return r.LookupIP(v.(string))
+				break
 			default:
 				return nil, fmt.Errorf("LookupIP: cannot convert %T(%+v) to []net.IP", v, v)
 			}
 		}
 	}
 
-	if ip := net.ParseIP(name); ip != nil {
-		return []net.IP{ip}, nil
-	}
-
-	lookupIP := r.lookupIP1
-	if r.DNSServer != "" {
-		lookupIP = r.lookupIP2
-	}
-
-	// ips, err := lookupIP(name)
 	v, err, shared := r.Singleflight.Do(name, func() (interface{}, error) {
-		return lookupIP(name)
+		return r.lookupIP0(name)
 	})
 	ips := v.([]net.IP)
 	if err == nil {
@@ -99,6 +89,19 @@ func (r *Resolver) LookupIP(name string) ([]net.IP, error) {
 	glog.V(2).Infof("LookupIP(%#v) return %+v, err=%+v, shared result: %t", name, ips, err, shared)
 
 	return ips, err
+}
+
+func (r *Resolver) lookupIP0(name string) ([]net.IP, error) {
+	if ip := net.ParseIP(name); ip != nil {
+		return []net.IP{ip}, nil
+	}
+
+	lookupIP := r.lookupIP1
+	if r.DNSServer != "" {
+		lookupIP = r.lookupIP2
+	}
+
+	return lookupIP(name)
 }
 
 func (r *Resolver) lookupIP1(name string) ([]net.IP, error) {
