@@ -18,6 +18,7 @@
 		"direct",
 		"vps",
 	],
+	"DirectSkipStripSSL": false,
 	"Sites": [
 		"*"
 	]

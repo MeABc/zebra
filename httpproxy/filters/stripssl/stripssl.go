@@ -32,20 +32,22 @@ type Config struct {
 		Duration int
 		Portable bool
 	}
-	Ports   []int
-	Ignores []string
-	Sites   []string
+	Ports              []int
+	Ignores            []string
+	DirectSkipStripSSL bool
+	Sites              []string
 }
 
 type Filter struct {
 	Config
-	CA             *RootCA
-	CAExpiry       time.Duration
-	TLSMaxVersion  uint16
-	TLSConfigCache lrucache.Cache
-	Ports          map[string]struct{}
-	Ignores        map[string]struct{}
-	Sites          *helpers.HostMatcher
+	CA                 *RootCA
+	CAExpiry           time.Duration
+	TLSMaxVersion      uint16
+	TLSConfigCache     lrucache.Cache
+	Ports              map[string]struct{}
+	Ignores            map[string]struct{}
+	DirectSkipStripSSL bool
+	Sites              *helpers.HostMatcher
 }
 
 func init() {
@@ -77,14 +79,15 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 	})
 
 	f := &Filter{
-		Config:         *config,
-		TLSMaxVersion:  tls.VersionTLS12,
-		CA:             defaultCA,
-		CAExpiry:       time.Duration(config.RootCA.Duration) * time.Second,
-		TLSConfigCache: lrucache.NewMultiLRUCache(10, 1024),
-		Ports:          make(map[string]struct{}),
-		Ignores:        make(map[string]struct{}),
-		Sites:          helpers.NewHostMatcher(config.Sites),
+		Config:             *config,
+		TLSMaxVersion:      tls.VersionTLS12,
+		CA:                 defaultCA,
+		CAExpiry:           time.Duration(config.RootCA.Duration) * time.Second,
+		TLSConfigCache:     lrucache.NewMultiLRUCache(10, 1024),
+		Ports:              make(map[string]struct{}),
+		Ignores:            make(map[string]struct{}),
+		DirectSkipStripSSL: config.DirectSkipStripSSL,
+		Sites:              helpers.NewHostMatcher(config.Sites),
 	}
 
 	if v := helpers.TLSVersion(config.TLSVersion); v != 0 {
@@ -115,6 +118,11 @@ func (f *Filter) Request(ctx context.Context, req *http.Request) (context.Contex
 		if _, ok := f.Ignores[f1.FilterName()]; ok {
 			return ctx, req, nil
 		}
+		f.DirectSkipStripSSL = false
+	}
+
+	if f.DirectSkipStripSSL {
+		return ctx, req, nil
 	}
 
 	host, port, err := net.SplitHostPort(req.RequestURI)
