@@ -81,7 +81,7 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 		TLSMaxVersion:  tls.VersionTLS12,
 		CA:             defaultCA,
 		CAExpiry:       time.Duration(config.RootCA.Duration) * time.Second,
-		TLSConfigCache: lrucache.NewMultiLRUCache(4, 4096),
+		TLSConfigCache: lrucache.NewMultiLRUCache(10, 1024),
 		Ports:          make(map[string]struct{}),
 		Ignores:        make(map[string]struct{}),
 		Sites:          helpers.NewHostMatcher(config.Sites),
