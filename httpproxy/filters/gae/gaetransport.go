@@ -260,10 +260,20 @@ func (t *GAETransport) RoundTrip(req *http.Request) (*http.Response, error) {
 				return nil, err
 			}
 			glog.Warningf("GAE: request \"%s\" error: %T(%v), retry...", req.URL.String(), err, err)
-			// if err.Error() == "unexpected EOF" {
-			// 	helpers.CloseConnections(t.Transport.RoundTripper)
-			// 	return nil, err
-			// }
+
+			if ne, ok := err.(*net.OpError); ok && ne != nil && ne.Addr != nil {
+				if ne.Op == "read" && ne.Err.Error() == "context canceled" || ne.Err.Error() == "context deadline exceeded" {
+					if ip, _, err := net.SplitHostPort(ne.Addr.String()); err == nil {
+						helpers.CloseConnectionByRemoteHost(t.Transport.RoundTripper, ip)
+						if t.MultiDialer != nil {
+							duration := 5 * time.Minute
+							glog.Warningf("GAE: %s is context.Canceled, add to blacklist for %v", ip, duration)
+							t.MultiDialer.IPBlackList.Set(ip, struct{}{}, time.Now().Add(duration))
+						}
+					}
+				}
+			}
+
 			continue
 		}
 
@@ -302,6 +312,16 @@ func (t *GAETransport) RoundTrip(req *http.Request) (*http.Response, error) {
 				}
 				continue
 			case http.StatusBadRequest:
+				if addr, err := helpers.ReflectRemoteAddrFromResponse(resp); err == nil {
+					if ip, _, err := net.SplitHostPort(addr); err == nil {
+						if t.MultiDialer != nil {
+							duration := 5 * time.Minute
+							glog.Warningf("GAE: %s req.Method: %s, HTTP StatusCode: %d, add to blacklist for %v", ip, req.Method, resp.StatusCode, duration)
+							t.MultiDialer.IPBlackList.Set(ip, struct{}{}, time.Now().Add(duration))
+							helpers.CloseConnectionByRemoteHost(t.Transport.RoundTripper, ip)
+						}
+					}
+				}
 				if resp.Body != nil {
 					io.Copy(ioutil.Discard, resp.Body)
 					resp.Body.Close()
