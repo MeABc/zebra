@@ -189,9 +189,8 @@ func (f *Filter) Request(ctx context.Context, req *http.Request) (context.Contex
 					MaxVersion:               f.TLSMaxVersion,
 					MinVersion:               tls.VersionTLS10,
 					PreferServerCipherSuites: true,
-					Renegotiation:            tls.RenegotiateFreelyAsClient,
 					SessionTicketsDisabled:   false,
-					ClientSessionCache:       tls.NewLRUClientSessionCache(1000),
+					Renegotiation:            tls.RenegotiateFreelyAsClient,
 				}
 				f.TLSConfigCache.Set(cacheKey, config, time.Now().Add(24*time.Hour))
 			}
