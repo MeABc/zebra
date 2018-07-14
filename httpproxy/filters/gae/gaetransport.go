@@ -199,7 +199,7 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 			if ip, _, err := net.SplitHostPort(addr); err == nil {
 				var duration time.Duration
 
-				if resp.StatusCode == http.StatusBadGateway && bytes.Contains(body, []byte("Please try again in 30 seconds.")) {
+				if resp.StatusCode == http.StatusBadGateway && (bytes.Contains(body, []byte("Please try again in 30 seconds.")) || bytes.Contains(body, []byte("This page cannot be loaded using Chrome Data Saver. Try reloading the page."))) {
 					duration = 1 * time.Hour
 				} else if resp.StatusCode >= 301 && resp.Header.Get("Location") != "" {
 					duration = 2 * time.Hour
