@@ -8,6 +8,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/MeABc/glog"
 	"github.com/MeABc/net/http2"
@@ -142,5 +143,62 @@ func CloseResponseBody(resp *http.Response) {
 	if resp != nil && resp.Body != nil {
 		io.Copy(ioutil.Discard, resp.Body)
 		resp.Body.Close()
+	}
+}
+
+func CloseWithBlackStatusBadRequest(
+	rt http.RoundTripper,
+	md *MultiDialer,
+	req *http.Request,
+	resp *http.Response,
+	err error,
+) {
+	if addr, err := ReflectRemoteAddrFromResponse(resp); err == nil {
+		if ip, _, err := net.SplitHostPort(addr); err == nil {
+			if md != nil {
+				duration := 5 * time.Minute
+				glog.Warningf("GAE: %s req.Method: %s, HTTP StatusCode: %d, add to blacklist for %v", ip, req.Method, resp.StatusCode, duration)
+				md.IPBlackList.Set(ip, struct{}{}, time.Now().Add(duration))
+				CloseConnectionByRemoteHost(rt, ip)
+			}
+		}
+	}
+}
+
+func CloseWithBlackContextCanceled(
+	rt http.RoundTripper,
+	md *MultiDialer,
+	err error,
+) {
+	if ne, ok := err.(*net.OpError); ok && ne != nil && ne.Addr != nil {
+		if ne.Op == "read" && ne.Err.Error() == "context canceled" || ne.Err.Error() == "context deadline exceeded" {
+			if ip, _, err := net.SplitHostPort(ne.Addr.String()); err == nil {
+				CloseConnectionByRemoteHost(rt, ip)
+				if md != nil {
+					duration := 5 * time.Minute
+					glog.Warningf("GAE: %s is context.Canceled, add to blacklist for %v", ip, duration)
+					md.IPBlackList.Set(ip, struct{}{}, time.Now().Add(duration))
+				}
+			}
+		}
+	}
+}
+
+func CloseWithBlackQUICPeerGoingAway(
+	rt http.RoundTripper,
+	md *MultiDialer,
+	err error,
+) {
+	if ne, ok := err.(*net.OpError); ok && ne != nil && ne.Addr != nil {
+		if ne.Op == "read" && ne.Err.Error() == "InvalidHeadersStreamData: PeerGoingAway: " {
+			if ip, _, err := net.SplitHostPort(ne.Addr.String()); err == nil {
+				CloseConnectionByRemoteHost(rt, ip)
+				if md != nil {
+					duration := 5 * time.Minute
+					glog.Warningf("GAE: %s is PeerGoingAway, add to blacklist for %v", ip, duration)
+					md.IPBlackList.Set(ip, struct{}{}, time.Now().Add(duration))
+				}
+			}
+		}
 	}
 }
