@@ -1,6 +1,8 @@
 package helpers
 
 import (
+	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"path"
@@ -134,4 +136,11 @@ func IsStaticRequest(req *http.Request) bool {
 		}
 	}
 	return false
+}
+
+func CloseResponseBody(resp *http.Response) {
+	if resp != nil && resp.Body != nil {
+		io.Copy(ioutil.Discard, resp.Body)
+		resp.Body.Close()
+	}
 }

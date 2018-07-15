@@ -7,8 +7,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
-	"io"
-	"io/ioutil"
 	"math/rand"
 	"net"
 	"net/http"
@@ -661,10 +659,7 @@ func (f *Filter) RoundTrip(ctx context.Context, req *http.Request) (context.Cont
 	resp, err := tr.RoundTrip(req)
 	if err != nil {
 		glog.Warningf("%s \"GAE %s %s %s %s\" error: %T(%v)", req.RemoteAddr, prefix, req.Method, req.URL.String(), req.Proto, err, err)
-		if resp != nil && resp.Body != nil {
-			io.Copy(ioutil.Discard, resp.Body)
-			resp.Body.Close()
-		}
+		helpers.CloseResponseBody(resp)
 		return ctx, nil, err
 	}
 
