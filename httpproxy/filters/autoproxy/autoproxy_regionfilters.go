@@ -1,6 +1,7 @@
 package autoproxy
 
 import (
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -123,17 +124,25 @@ func (h *IPinfoHandler) ipinfoSearch(ipStr string) (string, error) {
 	v, err, shared := h.Singleflight.Do(url, func() (interface{}, error) {
 		return h.Transport.RoundTrip(req)
 	})
-	if err != nil {
-		return country, err
-	}
 
 	resp := v.(*http.Response)
-	defer resp.Body.Close()
+
+	if err != nil {
+		if resp.Body != nil {
+			io.Copy(ioutil.Discard, resp.Body)
+			resp.Body.Close()
+		}
+		return country, err
+	}
 
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
+		if resp.Body != nil {
+			resp.Body.Close()
+		}
 		return country, err
 	}
+	resp.Body.Close()
 
 	rule, _ := h.URLs[u0]
 	switch rule {
