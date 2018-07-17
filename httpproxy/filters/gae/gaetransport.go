@@ -26,6 +26,10 @@ type Transport struct {
 // https://github.com/golang/lint/blob/master/testdata/contextkeytypes.go
 type responseHeaderTimeoutKey struct{}
 
+const (
+	DefaultResponseContextTimeout time.Duration = 8 * time.Second
+)
+
 type QuicBody struct {
 	quic.Stream
 	Transport   *h2quic.RoundTripper
@@ -51,7 +55,7 @@ func (b *QuicBody) OnError(err error) {
 
 	if e, ok := err.(interface {
 		Error() string
-	}); ok && e.Error() == "PeerGoingAway: " {
+	}); ok && (e.Error() == "PeerGoingAway: " || e.Error() == "context deadline exceeded" || e.Error() == "context canceled") {
 		b.Transport.Close()
 	}
 }
@@ -60,7 +64,7 @@ func (t *Transport) roundTripQuic(req *http.Request) (*http.Response, error) {
 	t1 := t.RoundTripper.(*h2quic.RoundTripper)
 
 	if !strings.HasSuffix(req.Host, ".appspot.com") {
-		req = req.WithContext(context.WithValue(req.Context(), responseHeaderTimeoutKey{}, 8*time.Second))
+		req = req.WithContext(context.WithValue(req.Context(), responseHeaderTimeoutKey{}, DefaultResponseContextTimeout))
 	}
 
 	resp, err := t1.RoundTrip(req)
@@ -79,7 +83,7 @@ func (t *Transport) roundTripQuic(req *http.Request) (*http.Response, error) {
 }
 
 func (t *Transport) roundTripTLS(req *http.Request) (*http.Response, error) {
-	req = req.WithContext(context.WithValue(req.Context(), responseHeaderTimeoutKey{}, 8*time.Second))
+	req = req.WithContext(context.WithValue(req.Context(), responseHeaderTimeoutKey{}, DefaultResponseContextTimeout))
 
 	resp, err := t.RoundTripper.RoundTrip(req)
 
