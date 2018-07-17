@@ -55,7 +55,7 @@ func (b *QuicBody) OnError(err error) {
 
 	if e, ok := err.(interface {
 		Error() string
-	}); ok && (e.Error() == "PeerGoingAway: " || e.Error() == "context deadline exceeded" || e.Error() == "context canceled") {
+	}); ok && e.Error() == "PeerGoingAway: " {
 		b.Transport.Close()
 	}
 }
@@ -68,6 +68,12 @@ func (t *Transport) roundTripQuic(req *http.Request) (*http.Response, error) {
 	}
 
 	resp, err := t1.RoundTrip(req)
+
+	if ne, ok := err.(*net.OpError); ok && ne != nil {
+		if ne.Error() == "PeerGoingAway: " || ne.Error() == "context deadline exceeded" || ne.Error() == "context canceled" {
+			t1.Close()
+		}
+	}
 
 	if resp != nil && resp.Body != nil {
 		if stream, ok := resp.Body.(quic.Stream); ok {
