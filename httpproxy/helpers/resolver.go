@@ -23,6 +23,7 @@ type Resolver struct {
 	Singleflight *singleflight.Group
 	LRUCache     lrucache.Cache
 	BlackList    lrucache.Cache
+	Hosts        lrucache.Cache
 	DNSServer    string
 	DNSExpiry    time.Duration
 	DisableIPv6  bool
@@ -47,13 +48,29 @@ func (r *Resolver) LookupHost(name string) ([]string, error) {
 }
 
 func (r *Resolver) LookupIP(name string) ([]net.IP, error) {
+	if r.Hosts != nil {
+		if v, ok := r.Hosts.GetQuiet(name); ok {
+			switch v.(type) {
+			case []net.IP:
+				return v.([]net.IP), nil
+			case string:
+				if ip := net.ParseIP(v.(string)); ip != nil {
+					return []net.IP{ip}, nil
+				}
+				return nil, fmt.Errorf("LookupIP: net.ParseIP(%s) failed", name)
+			default:
+				return nil, fmt.Errorf("LookupIP: cannot convert %T(%+v) to []net.IP", v, v)
+			}
+		}
+	}
+
 	if r.LRUCache != nil {
 		if v, ok := r.LRUCache.GetNotStale(name); ok {
 			switch v.(type) {
 			case []net.IP:
 				return v.([]net.IP), nil
 			case string:
-				break
+				name = v.(string)
 			default:
 				return nil, fmt.Errorf("LookupIP: cannot convert %T(%+v) to []net.IP", v, v)
 			}
