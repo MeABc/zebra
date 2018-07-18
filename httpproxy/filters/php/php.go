@@ -99,6 +99,7 @@ func NewFilter(config *Config) (filters.Filter, error) {
 		Resolver: &helpers.Resolver{
 			Singleflight: &singleflight.Group{},
 			LRUCache:     lrucache.NewLRUCache(config.Transport.Dialer.DNSCacheSize),
+			Hosts:        lrucache.NewLRUCache(32),
 			DNSExpiry:    time.Duration(config.Transport.Dialer.DNSCacheExpiry) * time.Second,
 		},
 		Level: 2,
@@ -114,7 +115,7 @@ func NewFilter(config *Config) (filters.Filter, error) {
 
 	for _, server := range servers {
 		if server.Host != "" {
-			d.Resolver.LRUCache.Set(server.URL.Hostname(), server.Host, time.Time{})
+			d.Resolver.Hosts.Set(server.URL.Hostname(), server.Host, time.Time{})
 		}
 	}
 
