@@ -55,7 +55,9 @@ func (r *Resolver) LookupIP(name string) ([]net.IP, error) {
 				return v.([]net.IP), nil
 			case string:
 				if ip := net.ParseIP(v.(string)); ip != nil {
-					return []net.IP{ip}, nil
+					h := []net.IP{ip}
+					r.Hosts.Set(name, h, time.Time{})
+					return h, nil
 				}
 				return nil, fmt.Errorf("LookupIP: net.ParseIP(%s) failed", name)
 			default:
