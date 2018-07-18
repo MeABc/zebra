@@ -111,9 +111,10 @@ func GetHostName(req *http.Request) string {
 
 func IsStaticRequest(req *http.Request) bool {
 	switch path.Ext(req.URL.Path) {
-	case "bmp", "gif", "ico", "jpeg", "jpg", "png", "tif", "tiff",
-		"3gp", "3gpp", "avi", "f4v", "flv", "m4p", "mkv", "mp4",
-		"mp4v", "mpv4", "rmvb", ".webp", ".js", ".css":
+	case "bmp", "gif", "ico", "jpeg", "jpg", "png", "tif", "tiff", "dmg",
+		"3gp", "3gpp", "avi", "f4v", "flv", "m4p", "mkv", "mp4", "mp3", "m4v",
+		"woff2", "woff", "webm", "ogg", "exe", "zip", "bz2", "rar", "7z",
+		"mp4v", "mpv4", "rmvb", "webp", ".js", ".iso", ".xz", ".css", "json":
 		return true
 	case "":
 		name := path.Base(req.URL.Path)
