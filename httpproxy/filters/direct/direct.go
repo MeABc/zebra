@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/MeABc/glog"
+	"github.com/MeABc/net/http2"
 	"github.com/cloudflare/golibs/lrucache"
 	"golang.org/x/sync/singleflight"
 
@@ -125,6 +126,13 @@ func NewFilter(config *Config) (filters.Filter, error) {
 		tr.Dial = dialer.Dial
 		tr.DialTLS = nil
 		tr.Proxy = nil
+	}
+
+	if tr.TLSClientConfig != nil {
+		err := http2.ConfigureTransport(tr)
+		if err != nil {
+			glog.Warningf("DIRECT: Error enabling Transport HTTP/2 support: %v", err)
+		}
 	}
 
 	return &Filter{
