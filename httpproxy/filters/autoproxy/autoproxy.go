@@ -13,6 +13,7 @@ import (
 
 	"github.com/MeABc/glog"
 	"github.com/cloudflare/golibs/lrucache"
+	"golang.org/x/net/http2"
 	"golang.org/x/sync/singleflight"
 
 	"../../filters"
@@ -356,7 +357,7 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 				glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) return %T, not a RoundTripFilter", name, f0)
 			}
 			f.GFWListFilterRule = f1
-			f.GFWListFilterCache = lrucache.NewLRUCache(32)
+			f.GFWListFilterCache = lrucache.NewLRUCache(8192)
 		}
 
 		go pacOnceUpdater.Do(f.pacUpdater)
@@ -429,7 +430,7 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 			glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) return %T, not a RoundTripFilter", name, f0)
 		}
 		f.CNIPListRule = f1
-		f.CNIPListCache = lrucache.NewLRUCache(32)
+		f.CNIPListCache = lrucache.NewLRUCache(8192)
 
 		go cniplistOnceUpdater.Do(f.cniplistUpdater)
 	}
@@ -501,7 +502,7 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 			glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) return %T, not a RoundTripFilter", name, f0)
 		}
 		f.CNDomainListRule = f1
-		f.CNDomainListCache = lrucache.NewLRUCache(32)
+		f.CNDomainListCache = lrucache.NewLRUCache(8192)
 
 		go cndomainlistOnceUpdater.Do(f.cndomainlistUpdater)
 	}
@@ -616,10 +617,17 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 			tr.Proxy = nil
 		}
 
+		if tr.TLSClientConfig != nil {
+			err := http2.ConfigureTransport(tr)
+			if err != nil {
+				glog.Warningf("AUTOPROXY RegionFilters: Error enabling Transport HTTP/2 support: %v", err)
+			}
+		}
+
 		f.RegionLocator = &IPinfoHandler{
 			URLs:         config.RegionFilters.URLs,
-			Cache:        lrucache.NewLRUCache(uint(config.RegionFilters.DNSCacheSize)),
-			CacheTTL:     86400 * time.Second,
+			Cache:        lrucache.NewLRUCache(32),
+			CacheTTL:     60 * time.Second,
 			Singleflight: &singleflight.Group{},
 			Transport:    tr,
 			RateLimit:    8,
@@ -629,6 +637,8 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 
 		f.RegionResolver = &helpers.Resolver{
 			Singleflight: &singleflight.Group{},
+			LRUCache:     lrucache.NewLRUCache(32),
+			DNSExpiry:    60 * time.Second,
 		}
 
 		if config.RegionFilters.EnableRemoteDNS {
