@@ -20,6 +20,9 @@
 		"DisableKeepAlives": false,
 		"DisableCompression": false,
 		"TLSHandshakeTimeout": 8,
-		"MaxIdleConnsPerHost": 16
+		"MaxIdleConnsPerHost": 16,
+		"Hosts": {
+			"example.com": "127.0.0.1",
+		}
 	}
 }

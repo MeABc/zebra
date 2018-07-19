@@ -49,6 +49,7 @@ type Config struct {
 		DisableCompression  bool
 		TLSHandshakeTimeout int
 		MaxIdleConnsPerHost int
+		Hosts               map[string]string
 	}
 }
 
@@ -80,6 +81,7 @@ func NewFilter(config *Config) (filters.Filter, error) {
 		Resolver: &helpers.Resolver{
 			Singleflight: &singleflight.Group{},
 			LRUCache:     lrucache.NewLRUCache(config.Transport.Dialer.DNSCacheSize),
+			Hosts:        lrucache.NewLRUCache(8192),
 			DNSExpiry:    time.Duration(config.Transport.Dialer.DNSCacheExpiry) * time.Second,
 			BlackList:    lrucache.NewLRUCache(1024),
 		},
@@ -98,6 +100,12 @@ func NewFilter(config *Config) (filters.Filter, error) {
 		}
 		for _, s := range []string{"127.0.0.1", "::1"} {
 			d.Resolver.BlackList.Set(s, struct{}{}, time.Time{})
+		}
+	}
+
+	for host, ip := range config.Transport.Hosts {
+		if host != "" && ip != "" {
+			d.Resolver.Hosts.Set(host, ip, time.Time{})
 		}
 	}
 
