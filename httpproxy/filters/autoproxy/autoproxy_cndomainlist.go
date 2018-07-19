@@ -2,17 +2,120 @@ package autoproxy
 
 import (
 	"bytes"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
-	"../../storage"
 	"github.com/MeABc/glog"
+	"github.com/cloudflare/golibs/lrucache"
+	"golang.org/x/sync/singleflight"
+
+	"../../filters"
+	"../../helpers"
+	"../../proxy"
+	"../../storage"
 )
+
+var (
+	cndomainlistOnceUpdater sync.Once
+)
+
+func (f *Filter) CNDomainListInit(config *Config) {
+	if f.CNDomainListEnabled {
+		var err error
+
+		d0 := &net.Dialer{
+			KeepAlive: 30 * time.Second,
+			Timeout:   8 * time.Second,
+			// DualStack: true,
+		}
+
+		d := &helpers.Dialer{
+			Dialer: d0,
+			Resolver: &helpers.Resolver{
+				Singleflight: &singleflight.Group{},
+				LRUCache:     lrucache.NewLRUCache(32),
+				Hosts:        lrucache.NewLRUCache(4096),
+			},
+		}
+
+		if config.CNDomainList.EnableRemoteDNS {
+			d.Resolver.DNSServer = config.CNDomainList.DNSServer
+			_, _, _, err := helpers.ParseIPPort(config.CNDomainList.DNSServer)
+			if err != nil {
+				glog.Fatalf("AUTOPROXY: helpers.ParseIPPort(%v) failed", config.CNDomainList.DNSServer)
+			}
+		}
+
+		for host, ip := range config.Hosts {
+			if host != "" && ip != "" {
+				d.Resolver.Hosts.Set(host, ip, time.Time{})
+			}
+		}
+
+		d.Resolver.DNSExpiry = time.Duration(config.CNDomainList.Duration) * time.Second
+		f.CNDomainListResolver = d.Resolver
+		f.CNDomainListResolver.LRUCache = lrucache.NewLRUCache(32)
+
+		f.CNDomainList.Transport = &http.Transport{
+			Dial: d.Dial,
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: false,
+				ClientSessionCache: tls.NewLRUClientSessionCache(1000),
+			},
+			TLSHandshakeTimeout: 8 * time.Second,
+		}
+
+		if config.CNDomainList.Proxy.Enabled {
+			fixedURL2, err := url.Parse(config.CNDomainList.Proxy.URL)
+			if err != nil {
+				glog.Fatalf("url.Parse(%#v) error: %s", config.CNDomainList.Proxy.URL, err)
+			}
+
+			dialer2, err := proxy.FromURL(fixedURL2, d, nil)
+			if err != nil {
+				glog.Fatalf("proxy.FromURL(%#v) error: %s", fixedURL2.String(), err)
+			}
+
+			f.CNDomainList.Transport.Dial = dialer2.Dial
+			f.CNDomainList.Transport.DialTLS = nil
+			f.CNDomainList.Transport.Proxy = nil
+		}
+
+		f.CNDomainListDomains = NewCNDomainListDomains()
+		f.CNDomainListDomains.mu.Lock()
+		f.CNDomainListDomains.Domains, err = f.legallyParseDomainList(f.CNDomainList.Filename)
+		if err != nil {
+			glog.Fatalf("AUTOPROXY: legallyParseDomainList error: %v", err)
+		}
+		f.CNDomainListDomains.mu.Unlock()
+
+		name := config.CNDomainList.Rule
+		if name == "" {
+			name = "direct"
+		}
+		f0, err := filters.GetFilter(name)
+		if err != nil {
+			glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) for CNDomainList.Rule error: %v", name, err)
+		}
+		f1, ok := f0.(filters.RoundTripFilter)
+		if !ok {
+			glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) return %T, not a RoundTripFilter", name, f0)
+		}
+		f.CNDomainListRule = f1
+		f.CNDomainListCache = lrucache.NewLRUCache(8192)
+
+		go cndomainlistOnceUpdater.Do(f.cndomainlistUpdater)
+	}
+}
 
 func NewCNDomainListDomains() *CNDomainListDomains {
 	c := &CNDomainListDomains{

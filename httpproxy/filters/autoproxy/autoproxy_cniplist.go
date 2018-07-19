@@ -2,16 +2,118 @@ package autoproxy
 
 import (
 	"bytes"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/url"
+	"sync"
 	"time"
 
-	"../../storage"
 	"github.com/MeABc/glog"
+	"github.com/cloudflare/golibs/lrucache"
+	"golang.org/x/sync/singleflight"
+
+	"../../filters"
+	"../../helpers"
+	"../../proxy"
+	"../../storage"
 )
+
+var (
+	cniplistOnceUpdater sync.Once
+)
+
+func (f *Filter) CNIPListInit(config *Config) {
+	if f.CNIPListEnabled {
+		var err error
+
+		d0 := &net.Dialer{
+			KeepAlive: 30 * time.Second,
+			Timeout:   8 * time.Second,
+			// DualStack: true,
+		}
+
+		d := &helpers.Dialer{
+			Dialer: d0,
+			Resolver: &helpers.Resolver{
+				Singleflight: &singleflight.Group{},
+				LRUCache:     lrucache.NewLRUCache(32),
+				Hosts:        lrucache.NewLRUCache(4096),
+			},
+		}
+
+		if config.CNIPList.EnableRemoteDNS {
+			d.Resolver.DNSServer = config.CNIPList.DNSServer
+			_, _, _, err := helpers.ParseIPPort(config.CNIPList.DNSServer)
+			if err != nil {
+				glog.Fatalf("AUTOPROXY: helpers.ParseIPPort(%v) failed", config.CNIPList.DNSServer)
+			}
+		}
+
+		for host, ip := range config.Hosts {
+			if host != "" && ip != "" {
+				d.Resolver.Hosts.Set(host, ip, time.Time{})
+			}
+		}
+
+		d.Resolver.DNSExpiry = time.Duration(config.CNIPList.Duration) * time.Second
+		f.CNIPListResolver = d.Resolver
+		f.CNIPListResolver.LRUCache = lrucache.NewLRUCache(32)
+
+		f.CNIPList.Transport = &http.Transport{
+			Dial: d.Dial,
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: false,
+				ClientSessionCache: tls.NewLRUClientSessionCache(1000),
+			},
+			TLSHandshakeTimeout: 8 * time.Second,
+		}
+
+		if config.CNIPList.Proxy.Enabled {
+			fixedURL2, err := url.Parse(config.CNIPList.Proxy.URL)
+			if err != nil {
+				glog.Fatalf("url.Parse(%#v) error: %s", config.CNIPList.Proxy.URL, err)
+			}
+
+			dialer2, err := proxy.FromURL(fixedURL2, d, nil)
+			if err != nil {
+				glog.Fatalf("proxy.FromURL(%#v) error: %s", fixedURL2.String(), err)
+			}
+
+			f.CNIPList.Transport.Dial = dialer2.Dial
+			f.CNIPList.Transport.DialTLS = nil
+			f.CNIPList.Transport.Proxy = nil
+		}
+
+		f.CNIPListIPNets = NewCNIPListIPNets()
+		f.CNIPListIPNets.mu.Lock()
+		f.CNIPListIPNets.IPNets, err = f.legallyParseIPNetList(f.CNIPList.Filename)
+		if err != nil {
+			glog.Fatalf("AUTOPROXY: legallyParseIPNetList error: %v", err)
+		}
+		f.CNIPListIPNets.mu.Unlock()
+
+		name := config.CNIPList.Rule
+		if name == "" {
+			name = "direct"
+		}
+		f0, err := filters.GetFilter(name)
+		if err != nil {
+			glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) for CNIPList.Rule error: %v", name, err)
+		}
+		f1, ok := f0.(filters.RoundTripFilter)
+		if !ok {
+			glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) return %T, not a RoundTripFilter", name, f0)
+		}
+		f.CNIPListRule = f1
+		f.CNIPListCache = lrucache.NewLRUCache(8192)
+
+		go cniplistOnceUpdater.Do(f.cniplistUpdater)
+	}
+}
 
 func NewCNIPListIPNets() *CNIPListIPNets {
 	c := &CNIPListIPNets{

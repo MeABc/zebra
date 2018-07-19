@@ -1,10 +1,12 @@
 package autoproxy
 
 import (
+	"crypto/tls"
 	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -13,9 +15,164 @@ import (
 	"github.com/MeABc/glog"
 	"github.com/cloudflare/golibs/lrucache"
 	"github.com/tidwall/gjson"
+	"golang.org/x/net/http2"
 	"golang.org/x/sync/singleflight"
 	"golang.org/x/time/rate"
+
+	"../../filters"
+	"../../helpers"
+	"../../proxy"
 )
+
+func (f *Filter) RegionfiltersInit(config *Config) {
+	if f.RegionFiltersEnabled {
+		d0 := &net.Dialer{
+			KeepAlive: 30 * time.Second,
+			Timeout:   8 * time.Second,
+			// DualStack: true,
+		}
+
+		d := &helpers.Dialer{
+			Dialer: d0,
+			Resolver: &helpers.Resolver{
+				Singleflight: &singleflight.Group{},
+				LRUCache:     lrucache.NewLRUCache(32),
+				Hosts:        lrucache.NewLRUCache(4096),
+			},
+		}
+
+		if config.RegionFilters.EnableRemoteDNS {
+			d.Resolver.DNSServer = config.RegionFilters.DNSServer
+			_, _, _, err := helpers.ParseIPPort(config.RegionFilters.DNSServer)
+			if err != nil {
+				glog.Fatalf("AUTOPROXY: helpers.ParseIPPort(%v) failed", config.RegionFilters.DNSServer)
+			}
+		}
+
+		for host, ip := range config.Hosts {
+			if host != "" && ip != "" {
+				d.Resolver.Hosts.Set(host, ip, time.Time{})
+			}
+		}
+
+		d.Resolver.DNSExpiry = time.Duration(config.RegionFilters.Duration) * time.Second
+
+		tr := &http.Transport{
+			Dial: d.Dial,
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: false,
+				ClientSessionCache: tls.NewLRUClientSessionCache(1000),
+			},
+			TLSHandshakeTimeout: 8 * time.Second,
+		}
+
+		if config.RegionFilters.Proxy.Enabled {
+			fixedURL2, err := url.Parse(config.RegionFilters.Proxy.URL)
+			if err != nil {
+				glog.Fatalf("url.Parse(%#v) error: %s", config.RegionFilters.Proxy.URL, err)
+			}
+
+			dialer2, err := proxy.FromURL(fixedURL2, d, nil)
+			if err != nil {
+				glog.Fatalf("proxy.FromURL(%#v) error: %s", fixedURL2.String(), err)
+			}
+
+			tr.Dial = dialer2.Dial
+			tr.DialTLS = nil
+			tr.Proxy = nil
+		}
+
+		if tr.TLSClientConfig != nil {
+			err := http2.ConfigureTransport(tr)
+			if err != nil {
+				glog.Warningf("AUTOPROXY RegionFilters: Error enabling Transport HTTP/2 support: %v", err)
+			}
+		}
+
+		f.RegionLocator = &IPinfoHandler{
+			URLs:         config.RegionFilters.URLs,
+			Cache:        lrucache.NewLRUCache(32),
+			CacheTTL:     60 * time.Second,
+			Singleflight: &singleflight.Group{},
+			Transport:    tr,
+			RateLimit:    8,
+			UserAgent:    config.RegionFilters.UserAgent,
+		}
+		f.RegionLocator.InitIPinfoHandler()
+
+		f.RegionResolver = &helpers.Resolver{
+			Singleflight: &singleflight.Group{},
+			LRUCache:     lrucache.NewLRUCache(32),
+			Hosts:        lrucache.NewLRUCache(4096),
+			DNSExpiry:    60 * time.Second,
+		}
+
+		if config.RegionFilters.EnableRemoteDNS {
+			f.RegionResolver.DNSServer = config.RegionFilters.DNSServer
+			_, _, _, err := helpers.ParseIPPort(config.RegionFilters.DNSServer)
+			if err != nil {
+				glog.Fatalf("AUTOPROXY: helpers.ParseIPPort(%v) failed", config.RegionFilters.DNSServer)
+			}
+		}
+
+		for host, ip := range config.Hosts {
+			if host != "" && ip != "" {
+				f.RegionResolver.Hosts.Set(host, ip, time.Time{})
+			}
+		}
+
+		fm := make(map[string]filters.RoundTripFilter)
+		for region, name := range config.RegionFilters.Rules {
+			if name == "" {
+				continue
+			}
+			f0, err := filters.GetFilter(name)
+			if err != nil {
+				glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) for %#v error: %v", name, region, err)
+			}
+			f1, ok := f0.(filters.RoundTripFilter)
+			if !ok {
+				glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) return %T, not a RoundTripFilter", name, f0)
+			}
+			fm[strings.ToLower(region)] = f1
+		}
+		f.RegionFiltersRules = fm
+
+		fm = make(map[string]filters.RoundTripFilter)
+		for ip, name := range config.RegionFilters.IPRules {
+			if name == "" {
+				fm[ip] = nil
+				continue
+			}
+			f0, err := filters.GetFilter(name)
+			if err != nil {
+				glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) for %#v error: %v", name, ip, err)
+			}
+			f1, ok := f0.(filters.RoundTripFilter)
+			if !ok {
+				glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) return %T, not a RoundTripFilter", name, f0)
+			}
+			fm[ip] = f1
+		}
+		f.RegionFiltersIPRules = fm
+
+		f.RegionFilterCache = lrucache.NewLRUCache(uint(f.Config.RegionFilters.DNSCacheSize))
+	}
+}
+
+func (f *Filter) FindCountryByIP(ip string) (string, error) {
+	country, err := f.RegionLocator.IPinfo(ip)
+	if err != nil {
+		return "", err
+	}
+
+	switch country {
+	case "China", "china", "cn", "CN":
+		country = "中国"
+	}
+
+	return country, nil
+}
 
 type IPinfoHandler struct {
 	m            sync.Map     // map[LimiterKey]*rate.Limiter
@@ -45,20 +202,6 @@ func (h *IPinfoHandler) ToggleUrl() {
 			h.keyURL.Store(k)
 		}
 	}
-}
-
-func (f *Filter) FindCountryByIP(ip string) (string, error) {
-	country, err := f.RegionLocator.IPinfo(ip)
-	if err != nil {
-		return "", err
-	}
-
-	switch country {
-	case "China", "china", "cn", "CN":
-		country = "中国"
-	}
-
-	return country, nil
 }
 
 func (h *IPinfoHandler) IPinfo(ip string) (string, error) {

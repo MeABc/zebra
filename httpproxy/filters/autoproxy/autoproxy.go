@@ -2,7 +2,6 @@ package autoproxy
 
 import (
 	"context"
-	"crypto/tls"
 	"mime"
 	"net"
 	"net/http"
@@ -13,12 +12,9 @@ import (
 
 	"github.com/MeABc/glog"
 	"github.com/cloudflare/golibs/lrucache"
-	"golang.org/x/net/http2"
-	"golang.org/x/sync/singleflight"
 
 	"../../filters"
 	"../../helpers"
-	"../../proxy"
 	"../../storage"
 )
 
@@ -108,13 +104,8 @@ type Config struct {
 		Enabled   bool
 		SiteRules []string
 	}
+	Hosts map[string]string
 }
-
-var (
-	pacOnceUpdater          sync.Once
-	cniplistOnceUpdater     sync.Once
-	cndomainlistOnceUpdater sync.Once
-)
 
 type GFWList struct {
 	URL       *url.URL
@@ -285,228 +276,6 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 		RegionFiltersEnabled: config.RegionFilters.Enabled,
 	}
 
-	d0 := &net.Dialer{
-		KeepAlive: 30 * time.Second,
-		Timeout:   8 * time.Second,
-		// DualStack: true,
-	}
-
-	if f.GFWListEnabled {
-		d := &helpers.Dialer{
-			Dialer: d0,
-			Resolver: &helpers.Resolver{
-				Singleflight: &singleflight.Group{},
-				LRUCache:     lrucache.NewLRUCache(32),
-			},
-		}
-
-		if config.GFWList.EnableRemoteDNS {
-			d.Resolver.DNSServer = config.GFWList.DNSServer
-			_, _, _, err := helpers.ParseIPPort(config.GFWList.DNSServer)
-			if err != nil {
-				glog.Fatalf("AUTOPROXY: helpers.ParseIPPort(%v) failed", config.GFWList.DNSServer)
-			}
-		}
-
-		d.Resolver.DNSExpiry = time.Duration(config.GFWList.Duration) * time.Second
-
-		f.GFWList.Transport = &http.Transport{
-			Dial: d.Dial,
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: false,
-				ClientSessionCache: tls.NewLRUClientSessionCache(1000),
-			},
-			TLSHandshakeTimeout: 8 * time.Second,
-		}
-
-		if config.GFWList.Proxy.Enabled {
-			fixedURL1, err := url.Parse(config.GFWList.Proxy.URL)
-			if err != nil {
-				glog.Fatalf("url.Parse(%#v) error: %s", config.GFWList.Proxy.URL, err)
-			}
-
-			dialer1, err := proxy.FromURL(fixedURL1, d, nil)
-			if err != nil {
-				glog.Fatalf("proxy.FromURL(%#v) error: %s", fixedURL1.String(), err)
-			}
-
-			f.GFWList.Transport.Dial = dialer1.Dial
-			f.GFWList.Transport.DialTLS = nil
-			f.GFWList.Transport.Proxy = nil
-		}
-
-		f.GFWListDomains = NewGFWListDomains()
-		f.GFWListDomains.mu.Lock()
-		f.GFWListDomains.Domains, err = f.legallyParseGFWList(f.GFWList.Filename)
-		if err != nil {
-			glog.Fatalf("AUTOPROXY: legallyParseGFWList error: %v", err)
-		}
-		f.GFWListDomains.mu.Unlock()
-
-		if config.GFWList.Filter.Enabled {
-			name := config.GFWList.Filter.Rule
-			if name == "" {
-				name = "direct"
-			}
-			f0, err := filters.GetFilter(name)
-			if err != nil {
-				glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) for GFWList.Filter.Rule error: %v", name, err)
-			}
-			f1, ok := f0.(filters.RoundTripFilter)
-			if !ok {
-				glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) return %T, not a RoundTripFilter", name, f0)
-			}
-			f.GFWListFilterRule = f1
-			f.GFWListFilterCache = lrucache.NewLRUCache(8192)
-		}
-
-		go pacOnceUpdater.Do(f.pacUpdater)
-	}
-
-	if f.CNIPListEnabled {
-		d := &helpers.Dialer{
-			Dialer: d0,
-			Resolver: &helpers.Resolver{
-				Singleflight: &singleflight.Group{},
-				LRUCache:     lrucache.NewLRUCache(32),
-			},
-		}
-
-		if config.CNIPList.EnableRemoteDNS {
-			d.Resolver.DNSServer = config.CNIPList.DNSServer
-			_, _, _, err := helpers.ParseIPPort(config.CNIPList.DNSServer)
-			if err != nil {
-				glog.Fatalf("AUTOPROXY: helpers.ParseIPPort(%v) failed", config.CNIPList.DNSServer)
-			}
-		}
-
-		d.Resolver.DNSExpiry = time.Duration(config.CNIPList.Duration) * time.Second
-		f.CNIPListResolver = d.Resolver
-		f.CNIPListResolver.LRUCache = lrucache.NewLRUCache(32)
-
-		f.CNIPList.Transport = &http.Transport{
-			Dial: d.Dial,
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: false,
-				ClientSessionCache: tls.NewLRUClientSessionCache(1000),
-			},
-			TLSHandshakeTimeout: 8 * time.Second,
-		}
-
-		if config.CNIPList.Proxy.Enabled {
-			fixedURL2, err := url.Parse(config.CNIPList.Proxy.URL)
-			if err != nil {
-				glog.Fatalf("url.Parse(%#v) error: %s", config.CNIPList.Proxy.URL, err)
-			}
-
-			dialer2, err := proxy.FromURL(fixedURL2, d, nil)
-			if err != nil {
-				glog.Fatalf("proxy.FromURL(%#v) error: %s", fixedURL2.String(), err)
-			}
-
-			f.CNIPList.Transport.Dial = dialer2.Dial
-			f.CNIPList.Transport.DialTLS = nil
-			f.CNIPList.Transport.Proxy = nil
-		}
-
-		f.CNIPListIPNets = NewCNIPListIPNets()
-		f.CNIPListIPNets.mu.Lock()
-		f.CNIPListIPNets.IPNets, err = f.legallyParseIPNetList(f.CNIPList.Filename)
-		if err != nil {
-			glog.Fatalf("AUTOPROXY: legallyParseIPNetList error: %v", err)
-		}
-		f.CNIPListIPNets.mu.Unlock()
-
-		name := config.CNIPList.Rule
-		if name == "" {
-			name = "direct"
-		}
-		f0, err := filters.GetFilter(name)
-		if err != nil {
-			glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) for CNIPList.Rule error: %v", name, err)
-		}
-		f1, ok := f0.(filters.RoundTripFilter)
-		if !ok {
-			glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) return %T, not a RoundTripFilter", name, f0)
-		}
-		f.CNIPListRule = f1
-		f.CNIPListCache = lrucache.NewLRUCache(8192)
-
-		go cniplistOnceUpdater.Do(f.cniplistUpdater)
-	}
-
-	if f.CNDomainListEnabled {
-		d := &helpers.Dialer{
-			Dialer: d0,
-			Resolver: &helpers.Resolver{
-				Singleflight: &singleflight.Group{},
-				LRUCache:     lrucache.NewLRUCache(32),
-			},
-		}
-
-		if config.CNDomainList.EnableRemoteDNS {
-			d.Resolver.DNSServer = config.CNDomainList.DNSServer
-			_, _, _, err := helpers.ParseIPPort(config.CNDomainList.DNSServer)
-			if err != nil {
-				glog.Fatalf("AUTOPROXY: helpers.ParseIPPort(%v) failed", config.CNDomainList.DNSServer)
-			}
-		}
-
-		d.Resolver.DNSExpiry = time.Duration(config.CNDomainList.Duration) * time.Second
-		f.CNDomainListResolver = d.Resolver
-		f.CNDomainListResolver.LRUCache = lrucache.NewLRUCache(32)
-
-		f.CNDomainList.Transport = &http.Transport{
-			Dial: d.Dial,
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: false,
-				ClientSessionCache: tls.NewLRUClientSessionCache(1000),
-			},
-			TLSHandshakeTimeout: 8 * time.Second,
-		}
-
-		if config.CNDomainList.Proxy.Enabled {
-			fixedURL2, err := url.Parse(config.CNDomainList.Proxy.URL)
-			if err != nil {
-				glog.Fatalf("url.Parse(%#v) error: %s", config.CNDomainList.Proxy.URL, err)
-			}
-
-			dialer2, err := proxy.FromURL(fixedURL2, d, nil)
-			if err != nil {
-				glog.Fatalf("proxy.FromURL(%#v) error: %s", fixedURL2.String(), err)
-			}
-
-			f.CNDomainList.Transport.Dial = dialer2.Dial
-			f.CNDomainList.Transport.DialTLS = nil
-			f.CNDomainList.Transport.Proxy = nil
-		}
-
-		f.CNDomainListDomains = NewCNDomainListDomains()
-		f.CNDomainListDomains.mu.Lock()
-		f.CNDomainListDomains.Domains, err = f.legallyParseDomainList(f.CNDomainList.Filename)
-		if err != nil {
-			glog.Fatalf("AUTOPROXY: legallyParseDomainList error: %v", err)
-		}
-		f.CNDomainListDomains.mu.Unlock()
-
-		name := config.CNDomainList.Rule
-		if name == "" {
-			name = "direct"
-		}
-		f0, err := filters.GetFilter(name)
-		if err != nil {
-			glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) for CNDomainList.Rule error: %v", name, err)
-		}
-		f1, ok := f0.(filters.RoundTripFilter)
-		if !ok {
-			glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) return %T, not a RoundTripFilter", name, f0)
-		}
-		f.CNDomainListRule = f1
-		f.CNDomainListCache = lrucache.NewLRUCache(8192)
-
-		go cndomainlistOnceUpdater.Do(f.cndomainlistUpdater)
-	}
-
 	for _, name := range f.IndexFiles {
 		f.IndexFilesSet[name] = struct{}{}
 	}
@@ -515,177 +284,15 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 		f.IPHTMLWhiteList = helpers.NewHostMatcher(config.IPHTML.WhiteList)
 	}
 
-	if f.SiteFiltersEnabled {
-		siteFiltersStrings := make(map[string]string)
-		siteFiltersSuffixs := make(map[string]string)
-		siteFiltersMatcherRules := make(map[string]string)
-		for site, name := range config.SiteFilters.Rules {
-			if strings.Contains(site, "/") {
-				if strings.HasSuffix(site, "$") {
-					siteFiltersSuffixs[site] = name
-				} else {
-					siteFiltersStrings[site] = name
-				}
-			} else {
-				siteFiltersMatcherRules[site] = name
-			}
-		}
+	f.GFWListInit(config)
 
-		fm0 := make(map[string]filters.RoundTripFilter)
-		for site, name := range siteFiltersStrings {
-			f0, err := filters.GetFilter(name)
-			if err != nil {
-				glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) for %#v error: %v", name, site, err)
-			}
-			f1, ok := f0.(filters.RoundTripFilter)
-			if !ok {
-				glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) return %T, not a RoundTripFilter", name, f0)
-			}
-			fm0[site] = f1
-		}
-		f.SiteFiltersStrings = fm0
+	f.CNIPListInit(config)
 
-		fm1 := make(map[string]filters.RoundTripFilter)
-		for site, name := range siteFiltersSuffixs {
-			f0, err := filters.GetFilter(name)
-			if err != nil {
-				glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) for %#v error: %v", name, site, err)
-			}
-			f1, ok := f0.(filters.RoundTripFilter)
-			if !ok {
-				glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) return %T, not a RoundTripFilter", name, f0)
-			}
-			fm1[site] = f1
-		}
-		f.SiteFiltersSuffixs = fm1
+	f.CNDomainListInit(config)
 
-		fm2 := make(map[string]interface{})
-		for host, name := range siteFiltersMatcherRules {
-			f0, err := filters.GetFilter(name)
-			if err != nil {
-				glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) for %#v error: %v", name, host, err)
-			}
-			if _, ok := f0.(filters.RoundTripFilter); !ok {
-				glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) return %T, not a RoundTripFilter", name, f0)
-			}
-			fm2[host] = f0
-		}
-		f.SiteFiltersRules = helpers.NewHostMatcherWithValue(fm2)
-	}
+	f.SiteFiltersInit(config)
 
-	if f.RegionFiltersEnabled {
-		d := &helpers.Dialer{
-			Dialer: d0,
-			Resolver: &helpers.Resolver{
-				Singleflight: &singleflight.Group{},
-				LRUCache:     lrucache.NewLRUCache(32),
-			},
-		}
-
-		if config.RegionFilters.EnableRemoteDNS {
-			d.Resolver.DNSServer = config.RegionFilters.DNSServer
-			_, _, _, err := helpers.ParseIPPort(config.RegionFilters.DNSServer)
-			if err != nil {
-				glog.Fatalf("AUTOPROXY: helpers.ParseIPPort(%v) failed", config.RegionFilters.DNSServer)
-			}
-		}
-
-		d.Resolver.DNSExpiry = time.Duration(config.RegionFilters.Duration) * time.Second
-
-		tr := &http.Transport{
-			Dial: d.Dial,
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: false,
-				ClientSessionCache: tls.NewLRUClientSessionCache(1000),
-			},
-			TLSHandshakeTimeout: 8 * time.Second,
-		}
-
-		if config.RegionFilters.Proxy.Enabled {
-			fixedURL2, err := url.Parse(config.RegionFilters.Proxy.URL)
-			if err != nil {
-				glog.Fatalf("url.Parse(%#v) error: %s", config.RegionFilters.Proxy.URL, err)
-			}
-
-			dialer2, err := proxy.FromURL(fixedURL2, d, nil)
-			if err != nil {
-				glog.Fatalf("proxy.FromURL(%#v) error: %s", fixedURL2.String(), err)
-			}
-
-			tr.Dial = dialer2.Dial
-			tr.DialTLS = nil
-			tr.Proxy = nil
-		}
-
-		if tr.TLSClientConfig != nil {
-			err := http2.ConfigureTransport(tr)
-			if err != nil {
-				glog.Warningf("AUTOPROXY RegionFilters: Error enabling Transport HTTP/2 support: %v", err)
-			}
-		}
-
-		f.RegionLocator = &IPinfoHandler{
-			URLs:         config.RegionFilters.URLs,
-			Cache:        lrucache.NewLRUCache(32),
-			CacheTTL:     60 * time.Second,
-			Singleflight: &singleflight.Group{},
-			Transport:    tr,
-			RateLimit:    8,
-			UserAgent:    config.RegionFilters.UserAgent,
-		}
-		f.RegionLocator.InitIPinfoHandler()
-
-		f.RegionResolver = &helpers.Resolver{
-			Singleflight: &singleflight.Group{},
-			LRUCache:     lrucache.NewLRUCache(32),
-			DNSExpiry:    60 * time.Second,
-		}
-
-		if config.RegionFilters.EnableRemoteDNS {
-			f.RegionResolver.DNSServer = config.RegionFilters.DNSServer
-			_, _, _, err := helpers.ParseIPPort(config.RegionFilters.DNSServer)
-			if err != nil {
-				glog.Fatalf("AUTOPROXY: helpers.ParseIPPort(%v) failed", config.RegionFilters.DNSServer)
-			}
-		}
-
-		fm := make(map[string]filters.RoundTripFilter)
-		for region, name := range config.RegionFilters.Rules {
-			if name == "" {
-				continue
-			}
-			f0, err := filters.GetFilter(name)
-			if err != nil {
-				glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) for %#v error: %v", name, region, err)
-			}
-			f1, ok := f0.(filters.RoundTripFilter)
-			if !ok {
-				glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) return %T, not a RoundTripFilter", name, f0)
-			}
-			fm[strings.ToLower(region)] = f1
-		}
-		f.RegionFiltersRules = fm
-
-		fm = make(map[string]filters.RoundTripFilter)
-		for ip, name := range config.RegionFilters.IPRules {
-			if name == "" {
-				fm[ip] = nil
-				continue
-			}
-			f0, err := filters.GetFilter(name)
-			if err != nil {
-				glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) for %#v error: %v", name, ip, err)
-			}
-			f1, ok := f0.(filters.RoundTripFilter)
-			if !ok {
-				glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) return %T, not a RoundTripFilter", name, f0)
-			}
-			fm[ip] = f1
-		}
-		f.RegionFiltersIPRules = fm
-
-		f.RegionFilterCache = lrucache.NewLRUCache(uint(f.Config.RegionFilters.DNSCacheSize))
-	}
+	f.RegionfiltersInit(config)
 
 	return f, nil
 }
@@ -868,35 +475,4 @@ func (f *Filter) RoundTrip(ctx context.Context, req *http.Request) (context.Cont
 	}
 
 	return ctx, nil, nil
-}
-
-func (f *Filter) SiteFiltersMatcher(
-	host string,
-	req *http.Request,
-) (interface{}, bool) {
-	if f1, ok := f.SiteFiltersRules.Lookup(host); ok && f1 != nil {
-		return f1, ok
-	}
-
-	u := req.URL.String()
-	if len(f.SiteFiltersSuffixs) > 0 {
-		for s := range f.SiteFiltersSuffixs {
-			if strings.HasSuffix(u, s) {
-				if f1, ok := f.SiteFiltersSuffixs[s]; ok {
-					return f1, ok
-				}
-			}
-		}
-	}
-	if len(f.SiteFiltersStrings) > 0 {
-		for s := range f.SiteFiltersStrings {
-			if strings.Contains(u, s) {
-				if f1, ok := f.SiteFiltersStrings[s]; ok {
-					return f1, ok
-				}
-			}
-		}
-	}
-
-	return nil, false
 }

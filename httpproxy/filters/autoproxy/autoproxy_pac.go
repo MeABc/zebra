@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -15,16 +16,115 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/MeABc/glog"
+	"github.com/cloudflare/golibs/lrucache"
+	"golang.org/x/sync/singleflight"
 
+	"../../filters"
+	"../../helpers"
+	"../../proxy"
 	"../../storage"
 )
 
 const (
 	localhost2 string = "127.0.1.2"
 )
+
+var (
+	pacOnceUpdater sync.Once
+)
+
+func (f *Filter) GFWListInit(config *Config) {
+	if f.GFWListEnabled {
+		var err error
+
+		d0 := &net.Dialer{
+			KeepAlive: 30 * time.Second,
+			Timeout:   8 * time.Second,
+			// DualStack: true,
+		}
+
+		d := &helpers.Dialer{
+			Dialer: d0,
+			Resolver: &helpers.Resolver{
+				Singleflight: &singleflight.Group{},
+				LRUCache:     lrucache.NewLRUCache(32),
+				Hosts:        lrucache.NewLRUCache(4096),
+			},
+		}
+
+		if config.GFWList.EnableRemoteDNS {
+			d.Resolver.DNSServer = config.GFWList.DNSServer
+			_, _, _, err := helpers.ParseIPPort(config.GFWList.DNSServer)
+			if err != nil {
+				glog.Fatalf("AUTOPROXY: helpers.ParseIPPort(%v) failed", config.GFWList.DNSServer)
+			}
+		}
+
+		for host, ip := range config.Hosts {
+			if host != "" && ip != "" {
+				d.Resolver.Hosts.Set(host, ip, time.Time{})
+			}
+		}
+
+		d.Resolver.DNSExpiry = time.Duration(config.GFWList.Duration) * time.Second
+
+		f.GFWList.Transport = &http.Transport{
+			Dial: d.Dial,
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: false,
+				ClientSessionCache: tls.NewLRUClientSessionCache(1000),
+			},
+			TLSHandshakeTimeout: 8 * time.Second,
+		}
+
+		if config.GFWList.Proxy.Enabled {
+			fixedURL1, err := url.Parse(config.GFWList.Proxy.URL)
+			if err != nil {
+				glog.Fatalf("url.Parse(%#v) error: %s", config.GFWList.Proxy.URL, err)
+			}
+
+			dialer1, err := proxy.FromURL(fixedURL1, d, nil)
+			if err != nil {
+				glog.Fatalf("proxy.FromURL(%#v) error: %s", fixedURL1.String(), err)
+			}
+
+			f.GFWList.Transport.Dial = dialer1.Dial
+			f.GFWList.Transport.DialTLS = nil
+			f.GFWList.Transport.Proxy = nil
+		}
+
+		f.GFWListDomains = NewGFWListDomains()
+		f.GFWListDomains.mu.Lock()
+		f.GFWListDomains.Domains, err = f.legallyParseGFWList(f.GFWList.Filename)
+		if err != nil {
+			glog.Fatalf("AUTOPROXY: legallyParseGFWList error: %v", err)
+		}
+		f.GFWListDomains.mu.Unlock()
+
+		if config.GFWList.Filter.Enabled {
+			name := config.GFWList.Filter.Rule
+			if name == "" {
+				name = "direct"
+			}
+			f0, err := filters.GetFilter(name)
+			if err != nil {
+				glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) for GFWList.Filter.Rule error: %v", name, err)
+			}
+			f1, ok := f0.(filters.RoundTripFilter)
+			if !ok {
+				glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) return %T, not a RoundTripFilter", name, f0)
+			}
+			f.GFWListFilterRule = f1
+			f.GFWListFilterCache = lrucache.NewLRUCache(8192)
+		}
+
+		go pacOnceUpdater.Do(f.pacUpdater)
+	}
+}
 
 func (f *Filter) ProxyPacRoundTrip(ctx context.Context, req *http.Request) (context.Context, *http.Response, error) {
 	_, port, err := net.SplitHostPort(req.Host)
