@@ -188,6 +188,7 @@ type Filter struct {
 	RegionResolver       *helpers.Resolver
 	RegionLocator        *IPinfoHandler
 	RegionFilterCache    lrucache.Cache
+	RegionFiltersURLsLen int
 }
 
 func init() {
@@ -397,7 +398,7 @@ func (f *Filter) Request(ctx context.Context, req *http.Request) (context.Contex
 				filters.SetRoundTripFilter(ctx, f1)
 				return ctx, req, nil
 			}
-			if country, err := f.FindCountryByIP(ip.String()); err == nil {
+			if country, err := f.FindCountryByIP(ip.String()); err == nil && country != "" {
 				if f1, ok := f.RegionFiltersRules[country]; ok {
 					glog.V(2).Infof("%s \"AUTOPROXY RegionFilters %s %s %s %s\" with %T", req.RemoteAddr, country, req.Method, req.URL.String(), req.Proto, f1)
 					f.RegionFilterCache.Set(host, f1, time.Now().Add(time.Hour))

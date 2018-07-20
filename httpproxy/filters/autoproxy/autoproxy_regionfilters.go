@@ -89,10 +89,12 @@ func (f *Filter) RegionfiltersInit(config *Config) {
 			}
 		}
 
+		f.RegionFiltersURLsLen = len(config.RegionFilters.URLs)
+
 		f.RegionLocator = &IPinfoHandler{
 			URLs:         config.RegionFilters.URLs,
-			Cache:        lrucache.NewLRUCache(32),
-			CacheTTL:     60 * time.Second,
+			Cache:        lrucache.NewLRUCache(4096),
+			CacheTTL:     time.Duration(config.RegionFilters.Duration) * time.Second,
 			Singleflight: &singleflight.Group{},
 			Transport:    tr,
 			RateLimit:    8,
@@ -102,9 +104,9 @@ func (f *Filter) RegionfiltersInit(config *Config) {
 
 		f.RegionResolver = &helpers.Resolver{
 			Singleflight: &singleflight.Group{},
-			LRUCache:     lrucache.NewLRUCache(32),
+			LRUCache:     lrucache.NewLRUCache(4096),
 			Hosts:        lrucache.NewLRUCache(4096),
-			DNSExpiry:    60 * time.Second,
+			DNSExpiry:    time.Duration(config.RegionFilters.Duration) * time.Second,
 		}
 
 		if config.RegionFilters.EnableRemoteDNS {
@@ -121,7 +123,7 @@ func (f *Filter) RegionfiltersInit(config *Config) {
 			}
 		}
 
-		fm := make(map[string]filters.RoundTripFilter)
+		fm0 := make(map[string]filters.RoundTripFilter)
 		for region, name := range config.RegionFilters.Rules {
 			if name == "" {
 				continue
@@ -134,14 +136,14 @@ func (f *Filter) RegionfiltersInit(config *Config) {
 			if !ok {
 				glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) return %T, not a RoundTripFilter", name, f0)
 			}
-			fm[strings.ToLower(region)] = f1
+			fm0[strings.ToLower(region)] = f1
 		}
-		f.RegionFiltersRules = fm
+		f.RegionFiltersRules = fm0
 
-		fm = make(map[string]filters.RoundTripFilter)
+		fm1 := make(map[string]filters.RoundTripFilter)
 		for ip, name := range config.RegionFilters.IPRules {
 			if name == "" {
-				fm[ip] = nil
+				fm1[ip] = nil
 				continue
 			}
 			f0, err := filters.GetFilter(name)
@@ -152,18 +154,32 @@ func (f *Filter) RegionfiltersInit(config *Config) {
 			if !ok {
 				glog.Fatalf("AUTOPROXY: filters.GetFilter(%#v) return %T, not a RoundTripFilter", name, f0)
 			}
-			fm[ip] = f1
+			fm1[ip] = f1
 		}
-		f.RegionFiltersIPRules = fm
+		f.RegionFiltersIPRules = fm1
 
 		f.RegionFilterCache = lrucache.NewLRUCache(uint(f.Config.RegionFilters.DNSCacheSize))
 	}
 }
 
 func (f *Filter) FindCountryByIP(ip string) (string, error) {
-	country, err := f.RegionLocator.IPinfo(ip)
-	if err != nil {
-		return "", err
+	var country string
+	var retry int
+
+	if f.RegionFiltersURLsLen > 0 {
+		retry = f.RegionFiltersURLsLen
+	} else {
+		retry = 1
+	}
+
+	for i := 0; i < retry; i++ {
+		country, err := f.RegionLocator.IPinfo(ip)
+		if err != nil {
+			return "", err
+		}
+		if (i == retry-1) || (country != "") {
+			break
+		}
 	}
 
 	switch country {
@@ -247,7 +263,13 @@ func (h *IPinfoHandler) IPinfo(ip string) (string, error) {
 	if err != nil {
 		return country, err
 	}
-	h.Cache.Set(ip, country, time.Now().Add(h.CacheTTL))
+	if country == "" {
+		if h.lenURL > 1 {
+			h.ToggleUrl()
+		}
+	} else {
+		h.Cache.Set(ip, country, time.Now().Add(h.CacheTTL))
+	}
 
 	return country, nil
 }
@@ -271,7 +293,7 @@ func (h *IPinfoHandler) ipinfoSearch(ipStr string) (string, error) {
 	resp := v.(*http.Response)
 
 	if err != nil {
-		if resp.Body != nil {
+		if resp != nil && resp.Body != nil {
 			io.Copy(ioutil.Discard, resp.Body)
 			resp.Body.Close()
 		}
@@ -280,7 +302,7 @@ func (h *IPinfoHandler) ipinfoSearch(ipStr string) (string, error) {
 
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		if resp.Body != nil {
+		if resp != nil && resp.Body != nil {
 			resp.Body.Close()
 		}
 		return country, err
@@ -290,14 +312,18 @@ func (h *IPinfoHandler) ipinfoSearch(ipStr string) (string, error) {
 	rule, _ := h.URLs[u0]
 	switch rule {
 	case "normal":
-		country = gjson.GetBytes(data, "country").String()
+		if gjson.ValidBytes(data) {
+			country = gjson.GetBytes(data, "country").String()
+		}
 	case "taobao":
-		country = gjson.GetBytes(data, "data.country").String()
+		if gjson.ValidBytes(data) {
+			country = gjson.GetBytes(data, "data.country").String()
+		}
 	}
 
 	h.Singleflight.Forget(url)
 
-	glog.V(3).Infof("AUTOPROXY RegionFilters ipinfoSearch %s country result: %s, shared result: %t", url, country, shared)
+	glog.V(2).Infof("AUTOPROXY RegionFilters ipinfoSearch %s country result: %s, shared result: %t", url, country, shared)
 
 	return country, nil
 }
