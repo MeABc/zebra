@@ -14,10 +14,15 @@ type Transport struct {
 }
 
 func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
-	i := 0
+	var i, sl int
 
-	if helpers.IsStaticRequest(req) {
-		i = rand.Intn(len(t.Servers))
+	sl = len(t.Servers)
+	if sl > 1 {
+		if helpers.IsStaticRequest(req) {
+			i = rand.Intn(sl)
+		}
+	} else {
+		i = 0
 	}
 
 	server := t.Servers[i]
