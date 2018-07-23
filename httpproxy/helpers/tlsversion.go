@@ -54,3 +54,27 @@ func TLSVersionName(value uint16) string {
 	}
 	return fmt.Sprintf("0x%x", value)
 }
+
+func TLSMaxVersion(Versions []uint16) uint16 {
+	for _, value := range Versions {
+		switch value {
+		case tls.VersionTLS13:
+			return tls.VersionTLS13
+		case tls.VersionTLS12:
+			return tls.VersionTLS12
+		case tls.VersionTLS11:
+			return tls.VersionTLS11
+		case tls.VersionTLS10:
+			return tls.VersionTLS10
+		case tls.VersionTLS13Draft18:
+			return tls.VersionTLS13Draft18
+		case tls.VersionTLS13Draft21:
+			return tls.VersionTLS13Draft21
+		case tls.VersionTLS13Draft22:
+			return tls.VersionTLS13Draft22
+		case tls.VersionTLS13Draft23:
+			return tls.VersionTLS13Draft23
+		}
+	}
+	return tls.VersionTLS12
+}

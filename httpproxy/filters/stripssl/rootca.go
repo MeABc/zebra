@@ -11,6 +11,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"math/big"
 	"net"
@@ -38,7 +39,7 @@ type RootCA struct {
 	keyFile  string
 	certFile string
 	certDir  string
-	mu       *sync.Mutex
+	mu       *sync.RWMutex
 
 	ca       *x509.Certificate
 	priv     *rsa.PrivateKey
@@ -66,7 +67,7 @@ func NewRootCA(name string, vaildFor time.Duration, certDir string, portable boo
 		keyFile:  keyFile,
 		certFile: certFile,
 		certDir:  certDir,
-		mu:       new(sync.Mutex),
+		mu:       new(sync.RWMutex),
 	}
 
 	if storage.IsNotExist(store.Head(certFile)) {
@@ -206,6 +207,9 @@ func NewRootCA(name string, vaildFor time.Duration, certDir string, portable boo
 }
 
 func (c *RootCA) issueECC(commonName string, vaildFor time.Duration) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	certFile := c.toFilename(commonName, true)
 
 	csrTemplate := &x509.CertificateRequest{
@@ -271,6 +275,9 @@ func (c *RootCA) issueECC(commonName string, vaildFor time.Duration) error {
 }
 
 func (c *RootCA) issueRSA(commonName string, vaildFor time.Duration) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	certFile := c.toFilename(commonName, false)
 
 	csrTemplate := &x509.CertificateRequest{
@@ -375,46 +382,65 @@ func (c *RootCA) toFilename(commonName string, ecc bool) string {
 func (c *RootCA) Issue(commonName string, vaildFor time.Duration, ecc bool) (*tls.Certificate, error) {
 	certFile := c.toFilename(commonName, ecc)
 
+	c.mu.RLock()
 	resp, err := c.store.Get(certFile)
-	switch {
-	case err == nil && resp.StatusCode == http.StatusOK:
+	c.mu.RUnlock()
+	if err == nil && resp.StatusCode == http.StatusOK {
 		t, err := time.Parse(storage.DateFormat, resp.Header.Get("Last-Modified"))
-		if err == nil && time.Now().Sub(t) < 3*30*24*time.Hour {
-			break
-		}
-		resp.Body.Close()
-		c.store.Delete(certFile)
-		fallthrough
-	case storage.IsNotExist(resp, err):
-		glog.V(2).Infof("Issue %s certificate for %#v...", c.name, commonName)
-		c.mu.Lock()
-		if storage.IsNotExist(c.store.Head(certFile)) {
-			var err error
+		if err != nil || time.Now().Sub(t) > 3*30*24*time.Hour {
+			io.Copy(ioutil.Discard, resp.Body)
+			resp.Body.Close()
 
+			c.mu.Lock()
+			c.store.Delete(certFile)
+			c.mu.Unlock()
+		}
+	}
+	if storage.IsNotExist(resp, err) {
+		glog.V(2).Infof("Issue %s certificate for %#v...", c.name, commonName)
+
+		c.mu.RLock()
+		resp0, err := c.store.Head(certFile)
+		c.mu.RUnlock()
+		if storage.IsNotExist(resp0, err) {
+			var err error
 			if ecc {
 				err = c.issueECC(commonName, vaildFor)
 			} else {
 				err = c.issueRSA(commonName, vaildFor)
 			}
 			if err != nil {
-				c.mu.Unlock()
 				return nil, err
 			}
 		}
-		c.mu.Unlock()
+
+		c.mu.RLock()
 		resp, err = c.store.Get(certFile)
 		if err != nil {
+			if resp != nil && resp.Body != nil {
+				io.Copy(ioutil.Discard, resp.Body)
+				resp.Body.Close()
+			}
+			c.mu.RUnlock()
 			return nil, err
 		}
-	case err != nil:
+		c.mu.RUnlock()
+	} else if err != nil {
+		if resp != nil && resp.Body != nil {
+			io.Copy(ioutil.Discard, resp.Body)
+			resp.Body.Close()
+		}
 		return nil, err
 	}
 
-	defer resp.Body.Close()
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
+		if resp != nil && resp.Body != nil {
+			resp.Body.Close()
+		}
 		return nil, err
 	}
+	resp.Body.Close()
 
 	tlsCert, err := tls.X509KeyPair(data, data)
 	if err != nil {

@@ -3,6 +3,7 @@ package stripssl
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io"
 	"net"
@@ -83,7 +84,7 @@ func NewFilter(config *Config) (_ filters.Filter, err error) {
 		TLSMaxVersion:      tls.VersionTLS12,
 		CA:                 defaultCA,
 		CAExpiry:           time.Duration(config.RootCA.Duration) * time.Second,
-		TLSConfigCache:     lrucache.NewMultiLRUCache(10, 1024),
+		TLSConfigCache:     lrucache.NewMultiLRUCache(4, 4096),
 		Ports:              make(map[string]struct{}),
 		Ignores:            make(map[string]struct{}),
 		DirectSkipStripSSL: config.DirectSkipStripSSL,
@@ -184,28 +185,63 @@ func (f *Filter) Request(ctx context.Context, req *http.Request) (context.Contex
 				if err != nil {
 					return nil, err
 				}
+				pool := x509.NewCertPool()
+				pool.AddCert(f.CA.ca)
 				config = &tls.Config{
+					CipherSuites:             hello.CipherSuites,
 					Certificates:             []tls.Certificate{*cert},
-					MaxVersion:               f.TLSMaxVersion,
+					RootCAs:                  pool,
+					MaxVersion:               helpers.TLSMaxVersion(hello.SupportedVersions),
 					MinVersion:               tls.VersionTLS10,
 					PreferServerCipherSuites: true,
-					SessionTicketsDisabled:   false,
 					Renegotiation:            tls.RenegotiateFreelyAsClient,
+					CurvePreferences: []tls.CurveID{
+						tls.CurveP256,
+						tls.X25519,
+					},
 				}
 				f.TLSConfigCache.Set(cacheKey, config, time.Now().Add(24*time.Hour))
 			}
 			return config.(*tls.Config), nil
 		}
 
+		pool := x509.NewCertPool()
+		pool.AddCert(f.CA.ca)
+
+		cert := tls.Certificate{
+			Certificate: [][]byte{f.CA.derBytes},
+			PrivateKey:  f.CA.priv,
+		}
+
 		config := &tls.Config{
 			GetConfigForClient:          GetConfigForClient,
+			ClientAuth:                  tls.RequireAndVerifyClientCert,
+			Certificates:                []tls.Certificate{cert},
+			ClientCAs:                   pool,
 			MaxVersion:                  f.TLSMaxVersion,
 			MinVersion:                  tls.VersionTLS10,
 			SessionTicketsDisabled:      false,
 			DynamicRecordSizingDisabled: false,
-			ClientSessionCache:          tls.NewLRUClientSessionCache(10485760),
+			ClientSessionCache:          tls.NewLRUClientSessionCache(1024),
 			PreferServerCipherSuites:    true,
-			Renegotiation:               tls.RenegotiateFreelyAsClient,
+			CurvePreferences: []tls.CurveID{
+				tls.CurveP256,
+				tls.X25519,
+			},
+			CipherSuites: []uint16{
+				tls.TLS_AES_128_GCM_SHA256,
+				tls.TLS_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
+				tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+				tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+				tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_RSA_WITH_AES_128_GCM_SHA256,
+				tls.TLS_RSA_WITH_AES_256_CBC_SHA256,
+			},
+			Renegotiation: tls.RenegotiateFreelyAsClient,
 		}
 
 		tlsConn := tls.Server(conn, config)
