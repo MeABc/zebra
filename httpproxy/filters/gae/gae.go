@@ -669,6 +669,7 @@ func (f *Filter) RoundTrip(ctx context.Context, req *http.Request) (context.Cont
 		if resp.Header.Get("Content-Encoding") == "br" && !strings.Contains(resp.Request.Header.Get("Accept-Encoding"), "br") {
 			r, err := brotli.NewReader(resp.Body, nil)
 			if err != nil {
+				helpers.CloseResponseBody(resp)
 				return ctx, nil, err
 			}
 			resp.Body = helpers.ReaderCloser{Reader: r, Closer: resp.Body}

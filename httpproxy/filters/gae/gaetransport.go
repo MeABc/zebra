@@ -269,6 +269,7 @@ func (t *GAETransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 		resp1, err := t.Servers.DecodeResponse(resp)
 		if err != nil {
+			helpers.CloseResponseBody(resp)
 			helpers.CloseResponseBody(resp1)
 			return nil, err
 		}
