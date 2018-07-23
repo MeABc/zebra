@@ -95,6 +95,7 @@ func (h Handler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 			filters.SetRoundTripFilter(ctx, f)
 			glog.Errorf("%s \"Filter RoundTrip %T %s %s\" error: %+v", remoteAddr, f, method, url, err)
 			http.Error(rw, h.FormatError(ctx, err), http.StatusBadGateway)
+			helpers.CloseResponseBody(resp)
 			return
 		}
 		// Update context for request
@@ -116,6 +117,7 @@ func (h Handler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		if err != nil {
 			glog.Errorf("%s \"Filter Response %T %s %s\" error: %+v", remoteAddr, f, method, url, err)
 			http.Error(rw, h.FormatError(ctx, err), http.StatusBadGateway)
+			helpers.CloseResponseBody(resp)
 			return
 		}
 		// Update context for request
@@ -138,7 +140,7 @@ func (h Handler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	}
 	rw.WriteHeader(resp.StatusCode)
 	if resp.Body != nil {
-		defer resp.Body.Close()
+		// defer resp.Body.Close()
 		n, err := helpers.IOCopy(rw, resp.Body)
 		if err != nil {
 			if isClosedConnError(err) {
@@ -153,6 +155,7 @@ func (h Handler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 				oe.OnError(err)
 			}
 		}
+		resp.Body.Close()
 	}
 }
 
