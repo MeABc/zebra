@@ -146,6 +146,17 @@ func CloseResponseBody(resp *http.Response) {
 	}
 }
 
+func CloseRequestBody(req *http.Request) {
+	if req == nil || req.Body == nil {
+		return
+	}
+	if f, ok := req.Body.(*FakeCloseReadCloser); ok {
+		f.RealClose()
+		return
+	}
+	req.Body.Close()
+}
+
 func CloseWithBlackStatusBadRequest(
 	rt http.RoundTripper,
 	md *MultiDialer,

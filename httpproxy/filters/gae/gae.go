@@ -278,6 +278,7 @@ func NewFilter(config *Config) (filters.Filter, error) {
 		TLSConfig:         nil,
 		SiteToAlias:       helpers.NewHostMatcherWithString(config.SiteToAlias),
 		IPBlackList:       lrucache.NewLRUCache(1024),
+		DNSCachePoisoning: lrucache.NewLRUCache(1024),
 		HostMap:           hostmap,
 		GoogleQUICConfig:  googleQUICConfig,
 		GoogleTLSConfig:   googleTLSConfig,
@@ -291,7 +292,7 @@ func NewFilter(config *Config) (filters.Filter, error) {
 	}
 
 	for _, ip := range config.IPBlackList {
-		md.IPBlackList.Set(ip, struct{}{}, time.Time{})
+		md.DNSCachePoisoning.Set(ip, struct{}{}, time.Time{})
 	}
 
 	GetHostnameCacheKey := func(addr string) string {

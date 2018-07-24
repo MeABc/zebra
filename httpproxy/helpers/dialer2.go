@@ -29,6 +29,7 @@ type MultiDialer struct {
 	GoogleTLSConfig   *tls.Config
 	GoogleValidator   func(*x509.Certificate) bool
 	IPBlackList       lrucache.Cache
+	DNSCachePoisoning lrucache.Cache
 	HostMap           map[string][]string
 	TLSConnDuration   lrucache.Cache
 	TLSConnError      lrucache.Cache
@@ -74,9 +75,9 @@ func (d *MultiDialer) LookupAlias(alias string) (hosts []string, err error) {
 
 	hosts = make([]string, 0)
 	for host := range seen {
-		// if _, ok := d.IPBlackList.GetQuiet(host); ok {
-		// continue
-		// }
+		if _, ok := d.DNSCachePoisoning.GetQuiet(host); ok {
+			continue
+		}
 		hosts = append(hosts, host)
 	}
 
@@ -144,7 +145,7 @@ func (d *MultiDialer) DialTLS2(network, address string, cfg *tls.Config) (net.Co
 									err := fmt.Errorf("Wrong certificate of %s: Issuer=%v, SubjectKeyId=%#v", conn.RemoteAddr(), cert.Subject, cert.SubjectKeyId)
 									glog.Warningf("MultiDailer: %v", err)
 									if ip, _, err := net.SplitHostPort(conn.RemoteAddr().String()); err == nil {
-										d.IPBlackList.Set(ip, struct{}{}, time.Time{})
+										d.IPBlackList.Set(ip, struct{}{}, time.Now().Add(d.ErrorConnExpiry))
 									}
 									conn.Close()
 									return nil, err
@@ -311,9 +312,9 @@ func (d *MultiDialer) DialQuic(network string, address string, tlsConfig *tls.Co
 							err := fmt.Errorf("Wrong certificate of %s: Issuer=%v, SubjectKeyId=%#v", sess.RemoteAddr(), cert.Subject, cert.SubjectKeyId)
 							glog.Warningf("MultiDailer: %v", err)
 							if ip, _, err := net.SplitHostPort(sess.RemoteAddr().String()); err == nil {
-								d.IPBlackList.Set(ip, struct{}{}, time.Time{})
+								d.IPBlackList.Set(ip, struct{}{}, time.Now().Add(d.ErrorConnExpiry))
 							}
-							sess.Close()
+							sess.Close(nil)
 							return nil, err
 						}
 					}
@@ -439,7 +440,7 @@ func (d *MultiDialer) dialMultiQuic(hosts []string, port string, tlsConfig *tls.
 			go func(c chan sessWithError) {
 				for r1 := range lane {
 					if r1.s != nil {
-						r1.s.Close()
+						r1.s.Close(nil)
 					}
 					if r1.u != nil {
 						r1.u.Close()
@@ -450,7 +451,7 @@ func (d *MultiDialer) dialMultiQuic(hosts []string, port string, tlsConfig *tls.
 			return r.s, nil
 		}
 		if r.s != nil {
-			r.s.Close()
+			r.s.Close(nil)
 		}
 		if r.u != nil {
 			r.u.Close()
@@ -479,8 +480,9 @@ func (d *MultiDialer) pickupTLSHosts(hosts []string, n int) []string {
 	bads := make([]string, 0)
 
 	for _, host := range hosts {
-		if _, ok := d.IPBlackList.GetQuiet(host); ok {
+		if _, ok := d.IPBlackList.GetNotStale(host); ok {
 			d.TLSConnDuration.Del(host)
+			d.TLSConnError.Del(host)
 			continue
 		} else if duration, ok := d.TLSConnDuration.GetNotStale(host); ok {
 			if d, ok := duration.(time.Duration); !ok {

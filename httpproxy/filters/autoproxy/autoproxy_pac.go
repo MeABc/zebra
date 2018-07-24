@@ -289,10 +289,7 @@ func (f *Filter) pacUpdater() {
 		resp, err := f.GFWList.Transport.RoundTrip(req)
 		if err != nil {
 			glog.Warningf("%T.RoundTrip(%#v) error: %v", f.GFWList.Transport, f.GFWList.URL.String(), err.Error())
-			if resp != nil && resp.Body != nil {
-				io.Copy(ioutil.Discard, resp.Body)
-				resp.Body.Close()
-			}
+			helpers.CloseResponseBody(resp)
 			continue
 		}
 
@@ -307,7 +304,7 @@ func (f *Filter) pacUpdater() {
 		data, err := ioutil.ReadAll(r)
 		if err != nil {
 			glog.Warningf("ioutil.ReadAll(%T) error: %v", r, err)
-			resp.Body.Close()
+			helpers.CloseResponseBody(resp)
 			continue
 		}
 		resp.Body.Close()
@@ -414,6 +411,7 @@ func (f *Filter) legallyParseGFWList(filename string) ([]string, error) {
 	resp, err := f.Store.Get(filename)
 	if err != nil {
 		glog.Errorf("GetObject(%#v) error: %v", filename, err)
+		helpers.CloseResponseBody(resp)
 		return nil, err
 	}
 	defer resp.Body.Close()

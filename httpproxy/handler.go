@@ -29,7 +29,7 @@ type Handler struct {
 func (h Handler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	var err error
 	req.Body = &helpers.FakeCloseReadCloser{ReadCloser: req.Body}
-	defer req.Body.(*helpers.FakeCloseReadCloser).RealClose()
+	defer helpers.CloseRequestBody(req)
 
 	// Prepare filter.Context
 	ctx := filters.NewContext(req.Context(), h, h.Listener, rw, h.Branding)

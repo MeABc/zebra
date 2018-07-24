@@ -2,7 +2,6 @@ package autoproxy
 
 import (
 	"crypto/tls"
-	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -293,18 +292,13 @@ func (h *IPinfoHandler) ipinfoSearch(ipStr string) (string, error) {
 	resp := v.(*http.Response)
 
 	if err != nil {
-		if resp != nil && resp.Body != nil {
-			io.Copy(ioutil.Discard, resp.Body)
-			resp.Body.Close()
-		}
+		helpers.CloseResponseBody(resp)
 		return country, err
 	}
 
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		if resp != nil && resp.Body != nil {
-			resp.Body.Close()
-		}
+		helpers.CloseResponseBody(resp)
 		return country, err
 	}
 	resp.Body.Close()

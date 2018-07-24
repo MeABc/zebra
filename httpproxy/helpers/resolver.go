@@ -84,7 +84,8 @@ func (r *Resolver) LookupIP(name string) ([]net.IP, error) {
 	})
 	ips := v.([]net.IP)
 	if err == nil {
-		if r.BlackList != nil {
+		li := len(ips)
+		if r.BlackList != nil && li > 0 {
 			ips1 := ips[:0]
 			for _, ip := range ips {
 				if _, ok := r.BlackList.GetQuiet(ip.String()); !ok {
@@ -94,7 +95,7 @@ func (r *Resolver) LookupIP(name string) ([]net.IP, error) {
 			ips = ips1
 		}
 
-		if r.LRUCache != nil && len(ips) > 0 {
+		if r.LRUCache != nil && li > 0 {
 			if r.DNSExpiry == 0 {
 				r.LRUCache.Set(name, ips, time.Now().Add(DefaultDNSCacheExpiry))
 			} else {

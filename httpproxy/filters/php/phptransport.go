@@ -34,9 +34,7 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	res, err := t.RoundTripper.RoundTrip(req1)
 	if err != nil {
-		if res != nil && res.Body != nil {
-			res.Body.Close()
-		}
+		helpers.CloseResponseBody(res)
 		return nil, err
 	}
 

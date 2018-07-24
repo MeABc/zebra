@@ -11,7 +11,6 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"math/big"
 	"net"
@@ -388,9 +387,7 @@ func (c *RootCA) Issue(commonName string, vaildFor time.Duration, ecc bool) (*tl
 	if err == nil && resp.StatusCode == http.StatusOK {
 		t, err := time.Parse(storage.DateFormat, resp.Header.Get("Last-Modified"))
 		if err != nil || time.Now().Sub(t) > 3*30*24*time.Hour {
-			io.Copy(ioutil.Discard, resp.Body)
-			resp.Body.Close()
-
+			helpers.CloseResponseBody(resp)
 			c.mu.Lock()
 			c.store.Delete(certFile)
 			c.mu.Unlock()
@@ -417,27 +414,19 @@ func (c *RootCA) Issue(commonName string, vaildFor time.Duration, ecc bool) (*tl
 		c.mu.RLock()
 		resp, err = c.store.Get(certFile)
 		if err != nil {
-			if resp != nil && resp.Body != nil {
-				io.Copy(ioutil.Discard, resp.Body)
-				resp.Body.Close()
-			}
+			helpers.CloseResponseBody(resp)
 			c.mu.RUnlock()
 			return nil, err
 		}
 		c.mu.RUnlock()
 	} else if err != nil {
-		if resp != nil && resp.Body != nil {
-			io.Copy(ioutil.Discard, resp.Body)
-			resp.Body.Close()
-		}
+		helpers.CloseResponseBody(resp)
 		return nil, err
 	}
 
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		if resp != nil && resp.Body != nil {
-			resp.Body.Close()
-		}
+		helpers.CloseResponseBody(resp)
 		return nil, err
 	}
 	resp.Body.Close()

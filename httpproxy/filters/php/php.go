@@ -3,8 +3,6 @@ package php
 import (
 	"context"
 	"crypto/tls"
-	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -168,10 +166,7 @@ func (p *Filter) FilterName() string {
 func (f *Filter) RoundTrip(ctx context.Context, req *http.Request) (context.Context, *http.Response, error) {
 	resp, err := f.Transport.RoundTrip(req)
 	if err != nil {
-		if resp != nil && resp.Body != nil {
-			io.Copy(ioutil.Discard, resp.Body)
-			resp.Body.Close()
-		}
+		helpers.CloseResponseBody(resp)
 		return ctx, nil, err
 	}
 	glog.V(2).Infof("%s \"PHP %s %s %s\" %d %s", req.RemoteAddr, req.Method, req.URL.String(), req.Proto, resp.StatusCode, resp.Header.Get("Content-Length"))

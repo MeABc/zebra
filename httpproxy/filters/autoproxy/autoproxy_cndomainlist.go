@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/tls"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -146,6 +145,7 @@ func (f *Filter) legallyParseDomainList(filename string) ([]string, error) {
 
 	resp, err := f.Store.Get(filename)
 	if err != nil {
+		helpers.CloseResponseBody(resp)
 		return nil, fmt.Errorf("f.Store.Get(%v) error: %v", filename, err)
 	}
 	defer resp.Body.Close()
@@ -213,17 +213,14 @@ func (f *Filter) cndomainlistUpdater() {
 		resp, err := f.CNDomainList.Transport.RoundTrip(req)
 		if err != nil {
 			glog.Warningf("%T.RoundTrip(%#v) error: %v", f.CNDomainList.Transport, f.CNDomainList.URL.String(), err.Error())
-			if resp != nil && resp.Body != nil {
-				io.Copy(ioutil.Discard, resp.Body)
-				resp.Body.Close()
-			}
+			helpers.CloseResponseBody(resp)
 			continue
 		}
 
 		data, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			glog.Warningf("ioutil.ReadAll(%T) error: %v", resp.Body, err)
-			resp.Body.Close()
+			helpers.CloseResponseBody(resp)
 			continue
 		}
 		resp.Body.Close()
