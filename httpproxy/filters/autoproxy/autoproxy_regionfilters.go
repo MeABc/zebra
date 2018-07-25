@@ -317,6 +317,10 @@ func (h *IPinfoHandler) ipinfoSearch(ipStr string) (string, error) {
 		if gjson.ValidBytes(data) {
 			country = gjson.GetBytes(data, "country_name").String()
 		}
+	case "countryName":
+		if gjson.ValidBytes(data) {
+			country = gjson.GetBytes(data, "countryName").String()
+		}
 	}
 
 	h.Singleflight.Forget(url)
