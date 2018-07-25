@@ -34,14 +34,18 @@ type Resolver struct {
 }
 
 func (r *Resolver) LookupHost(name string) ([]string, error) {
+	if name == "" {
+		return nil, fmt.Errorf("LookupHost: NoSuchHost")
+	}
+
 	ips, err := r.LookupIP(name)
 	if err != nil {
 		return nil, err
 	}
 
-	addrs := make([]string, len(ips))
-	for i, ip := range ips {
-		addrs[i] = ip.String()
+	addrs := make([]string, 0, len(ips))
+	for _, ip := range ips {
+		addrs = append(addrs, ip.String())
 	}
 
 	return addrs, nil
