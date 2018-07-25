@@ -21,6 +21,7 @@ const (
 
 type Config struct {
 	Sites          []string
+	IgnoreSites    []string
 	SupportFilters []string
 	MaxSize        int
 	BufSize        int
@@ -29,11 +30,12 @@ type Config struct {
 
 type Filter struct {
 	Config
-	SiteMatcher    *helpers.HostMatcher
-	SupportFilters map[string]struct{}
-	MaxSize        int
-	BufSize        int
-	Threads        int
+	SiteMatcher        *helpers.HostMatcher
+	IgnoreSitesMatcher *helpers.HostMatcher
+	SupportFilters     map[string]struct{}
+	MaxSize            int
+	BufSize            int
+	Threads            int
 }
 
 func init() {
@@ -50,12 +52,13 @@ func init() {
 
 func NewFilter(config *Config) (filters.Filter, error) {
 	f := &Filter{
-		Config:         *config,
-		SiteMatcher:    helpers.NewHostMatcher(config.Sites),
-		SupportFilters: make(map[string]struct{}),
-		MaxSize:        config.MaxSize,
-		BufSize:        config.BufSize,
-		Threads:        config.Threads,
+		Config:             *config,
+		SiteMatcher:        helpers.NewHostMatcher(config.Sites),
+		IgnoreSitesMatcher: helpers.NewHostMatcher(config.IgnoreSites),
+		SupportFilters:     make(map[string]struct{}),
+		MaxSize:            config.MaxSize,
+		BufSize:            config.BufSize,
+		Threads:            config.Threads,
 	}
 
 	for _, name := range config.SupportFilters {
@@ -74,9 +77,15 @@ func (f *Filter) Request(ctx context.Context, req *http.Request) (context.Contex
 		return ctx, req, nil
 	}
 
+	host := helpers.GetHostName(req)
+
+	if f.IgnoreSitesMatcher.Match(host) {
+		return ctx, req, nil
+	}
+
 	if r := req.Header.Get("Range"); r == "" {
 		switch {
-		case f.SiteMatcher.Match(req.Host):
+		case f.SiteMatcher.Match(host):
 			req.Header.Set("Range", fmt.Sprintf("bytes=%d-%d", 0, f.MaxSize))
 			glog.V(2).Infof("AUTORANGE Sites rule matched, add %s for\"%s\"", req.Header.Get("Range"), req.URL.String())
 			ctx = filters.WithBool(ctx, "autorange.site", true)
@@ -108,7 +117,9 @@ func (f *Filter) Response(ctx context.Context, resp *http.Response) (context.Con
 		return ctx, resp, nil
 	}
 
-	if ok1, ok := filters.Bool(ctx, "autorange.default"); ok && ok1 {
+	defaultOK1, defaultOK := filters.Bool(ctx, "autorange.default")
+	siteOK1, siteOK := filters.Bool(ctx, "autorange.site")
+	if (!defaultOK1 && !defaultOK) && (!siteOK1 && !siteOK) {
 		return ctx, resp, nil
 	}
 

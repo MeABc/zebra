@@ -22,6 +22,9 @@
 		"vs*.thisav.com",
 		"x*.last.fm",
 	],
+	"IgnoreSites": [
+		"example.com",
+	],
 	"SupportFilters": [
 		"autoproxy",
 		"direct",
