@@ -17,6 +17,7 @@
 		},
 		"EnableRemoteDNS": false,
 		"DNSServer": "114.114.114.114",
+		"DNSBlackLocalIP": true,
 		"DisableKeepAlives": false,
 		"DisableCompression": false,
 		"TLSHandshakeTimeout": 8,

@@ -43,6 +43,7 @@ type Config struct {
 		}
 		EnableRemoteDNS     bool
 		DNSServer           string
+		DNSBlackLocalIP     bool
 		DisableKeepAlives   bool
 		DisableCompression  bool
 		TLSHandshakeTimeout int
@@ -81,7 +82,6 @@ func NewFilter(config *Config) (filters.Filter, error) {
 			LRUCache:     lrucache.NewLRUCache(config.Transport.Dialer.DNSCacheSize),
 			Hosts:        lrucache.NewLRUCache(8192),
 			DNSExpiry:    time.Duration(config.Transport.Dialer.DNSCacheExpiry) * time.Second,
-			BlackList:    lrucache.NewLRUCache(1024),
 		},
 	}
 	if config.Transport.EnableRemoteDNS {
@@ -92,12 +92,15 @@ func NewFilter(config *Config) (filters.Filter, error) {
 		}
 	}
 
-	if ips, err := helpers.LocalIPv4s(); err == nil {
-		for _, ip := range ips {
-			d.Resolver.BlackList.Set(ip.String(), struct{}{}, time.Time{})
-		}
-		for _, s := range []string{"127.0.0.1", "::1"} {
-			d.Resolver.BlackList.Set(s, struct{}{}, time.Time{})
+	if config.Transport.DNSBlackLocalIP {
+		d.Resolver.BlackList = lrucache.NewLRUCache(1024)
+		if ips, err := helpers.LocalIPv4s(); err == nil {
+			for _, ip := range ips {
+				d.Resolver.BlackList.Set(ip.String(), struct{}{}, time.Time{})
+			}
+			for _, s := range []string{"127.0.0.1", "::1"} {
+				d.Resolver.BlackList.Set(s, struct{}{}, time.Time{})
+			}
 		}
 	}
 
