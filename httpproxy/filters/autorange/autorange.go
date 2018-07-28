@@ -83,17 +83,16 @@ func (f *Filter) Request(ctx context.Context, req *http.Request) (context.Contex
 		return ctx, req, nil
 	}
 
+	if f.SiteMatcher.Match(host) {
+		ctx = filters.WithBool(ctx, "autorange.site", true)
+		req.Header.Set("Range", fmt.Sprintf("bytes=%d-%d", 0, f.MaxSize))
+		glog.V(2).Infof("AUTORANGE Sites rule matched, add %s for\"%s\"", req.Header.Get("Range"), req.URL.String())
+		return ctx, req, nil
+	}
+
 	r := req.Header.Get("Range")
-	if r == "" {
-		if f.SiteMatcher.Match(host) {
-			req.Header.Set("Range", fmt.Sprintf("bytes=%d-%d", 0, f.MaxSize))
-			glog.V(2).Infof("AUTORANGE Sites rule matched, add %s for\"%s\"", req.Header.Get("Range"), req.URL.String())
-			ctx = filters.WithBool(ctx, "autorange.site", true)
-			return ctx, req, nil
-		}
-		glog.V(3).Infof("AUTORANGE ignore preserved empty range for %#v", req.URL)
-	} else {
-		parts := strings.Split(r, "=")
+	parts := strings.Split(r, "=")
+	if r != "" {
 		if parts[0] == "bytes" {
 			parts1 := strings.Split(parts[1], "-")
 			if start, err := strconv.Atoi(parts1[0]); err == nil {
@@ -160,7 +159,7 @@ func (f *Filter) Response(ctx context.Context, resp *http.Response) (context.Con
 
 	resp.ContentLength = length
 	if length < ignoreFetchRangeSize {
-		resp.Header.Set("Content-Range", fmt.Sprintf("bytes=%d-%d", 0, length))
+		resp.Header.Set("Content-Range", fmt.Sprint("bytes=0-"))
 		glog.V(2).Infof("AUTORANGE \"%s\" ContentLength(%d) is less than %d, rangefetch for %#v", resp.Request.URL.String(), length, ignoreFetchRangeSize, resp.Header.Get("Content-Range"))
 		return ctx, resp, nil
 	}
