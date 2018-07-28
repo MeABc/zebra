@@ -32,7 +32,7 @@
 		"php",
 		"vps",
 	],
-	"MaxSize": 1572864,
+	"MaxSize": 2097152,
 	"BufSize": 8192,
 	"Threads": 3,
 }
