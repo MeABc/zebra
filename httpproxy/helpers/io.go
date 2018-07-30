@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	BUFSZ = 32 * 1024
+	BUFSZ = 64 * 1024
 )
 
 var (

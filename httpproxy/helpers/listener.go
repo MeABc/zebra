@@ -12,8 +12,8 @@ import (
 
 const (
 	backlog                        = 1024
-	defaultListenerReadBufferSize  = 128 * 1024
-	defaultListenerWriteBufferSize = 128 * 1024
+	defaultListenerReadBufferSize  = 64 * 1024
+	defaultListenerWriteBufferSize = 64 * 1024
 )
 
 type Listener interface {
