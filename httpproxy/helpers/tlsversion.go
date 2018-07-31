@@ -33,7 +33,7 @@ func TLSVersion(name string) uint16 {
 
 func TLSVersionName(value uint16) string {
 	switch value {
-	case tls.VersionTLS13, tls.VersionTLS13Draft18:
+	case tls.VersionTLS13, tls.VersionTLS13Draft18, tls.VersionTLS13Draft23:
 		return "TLSv13"
 	case tls.VersionTLS12:
 		return "TLSv12"
@@ -56,25 +56,32 @@ func TLSVersionName(value uint16) string {
 }
 
 func TLSMaxVersion(Versions []uint16) uint16 {
+	var tls13, tls12, tls11, tls10 bool
 	for _, value := range Versions {
 		switch value {
-		case tls.VersionTLS13:
-			return tls.VersionTLS13
+		case tls.VersionTLS13, tls.VersionTLS13Draft18, tls.VersionTLS13Draft23:
+			tls13 = true
 		case tls.VersionTLS12:
-			return tls.VersionTLS12
+			tls12 = true
 		case tls.VersionTLS11:
-			return tls.VersionTLS11
+			tls11 = true
 		case tls.VersionTLS10:
-			return tls.VersionTLS10
-		case tls.VersionTLS13Draft18:
-			return tls.VersionTLS13Draft18
-		case tls.VersionTLS13Draft21:
-			return tls.VersionTLS13Draft21
-		case tls.VersionTLS13Draft22:
-			return tls.VersionTLS13Draft22
-		case tls.VersionTLS13Draft23:
-			return tls.VersionTLS13Draft23
+			tls10 = true
 		}
 	}
+
+	if tls13 {
+		return tls.VersionTLS13
+	}
+	if tls12 {
+		return tls.VersionTLS12
+	}
+	if tls11 {
+		return tls.VersionTLS11
+	}
+	if tls10 {
+		return tls.VersionTLS10
+	}
+
 	return tls.VersionTLS12
 }
