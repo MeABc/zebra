@@ -172,16 +172,17 @@ func (f *Filter) Request(ctx context.Context, req *http.Request) (context.Contex
 			name := helpers.GetCommonName(host)
 			ecc := helpers.HasECCCiphers(hello.CipherSuites)
 
-			var cacheKey string
+			var cacheKey, md5hash string
 			if ecc {
 				cacheKey = fmt.Sprintf("%s%s", name, ua)
 			} else {
 				cacheKey = fmt.Sprintf("%s%s%s", name, ",rsa", ua)
 			}
+			md5hash = helpers.GetMD5Hash(cacheKey)
 
 			var config interface{}
 			var ok bool
-			if config, ok = f.TLSConfigCache.Get(helpers.GetMD5Hash(cacheKey)); !ok {
+			if config, ok = f.TLSConfigCache.Get(md5hash); !ok {
 				cert, err := f.CA.Issue(name, f.CAExpiry, ecc)
 				if err != nil {
 					return nil, err
@@ -201,7 +202,7 @@ func (f *Filter) Request(ctx context.Context, req *http.Request) (context.Contex
 						tls.X25519,
 					},
 				}
-				f.TLSConfigCache.Set(cacheKey, config, time.Now().Add(24*time.Hour))
+				f.TLSConfigCache.Set(md5hash, config, time.Now().Add(24*time.Hour))
 			}
 			return config.(*tls.Config), nil
 		}
