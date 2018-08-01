@@ -338,18 +338,26 @@ func (c *RootCA) issueRSA(commonName string, vaildFor time.Duration) error {
 }
 
 func (c *RootCA) toFilename(commonName string, ecc bool) string {
+	var path strings.Builder
+	var sepDir string
+
+	path.WriteString(c.certDir)
+
 	if strings.HasPrefix(commonName, "*.") {
 		commonName = commonName[1:]
 	}
 
-	var sepDir string
 	if ecc {
 		sepDir = "/ecc/"
 	} else {
 		sepDir = "/rsa/"
 	}
+	path.WriteString(sepDir)
+	path.WriteString(commonName)
+	path.WriteString(".crt")
 
-	return c.certDir + sepDir + commonName + ".crt"
+	// c.certDir + sepDir + commonName + ".crt"
+	return path.String()
 }
 
 func (c *RootCA) Issue(commonName string, vaildFor time.Duration, ecc bool) (*tls.Certificate, error) {
