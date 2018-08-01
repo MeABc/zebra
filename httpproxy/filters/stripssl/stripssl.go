@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -172,13 +173,17 @@ func (f *Filter) Request(ctx context.Context, req *http.Request) (context.Contex
 			name := helpers.GetCommonName(host)
 			ecc := helpers.HasECCCiphers(hello.CipherSuites)
 
-			var cacheKey, md5hash string
+			var md5hash string
+			var cacheKey strings.Builder
+			cacheKey.WriteString(name)
+			cacheKey.WriteString(ua)
 			if ecc {
-				cacheKey = fmt.Sprintf("%s%s", name, ua)
+				cacheKey.WriteString("ecc")
 			} else {
-				cacheKey = fmt.Sprintf("%s%s%s", name, ",rsa", ua)
+				cacheKey.WriteString("rsa")
 			}
-			md5hash = helpers.GetMD5Hash(cacheKey)
+			md5hash = helpers.GetMD5Hash(cacheKey.String())
+			cacheKey.Reset()
 
 			var config interface{}
 			var ok bool
