@@ -163,24 +163,25 @@ func (f *Filter) Request(ctx context.Context, req *http.Request) (context.Contex
 	if needStripSSL {
 		GetConfigForClient := func(hello *tls.ClientHelloInfo) (*tls.Config, error) {
 			host := req.Host
+			ua := req.UserAgent()
 
 			if h, _, err := net.SplitHostPort(host); err == nil {
 				host = h
 			}
 
-			name := GetCommonName(host)
+			name := helpers.GetCommonName(host)
 			ecc := helpers.HasECCCiphers(hello.CipherSuites)
 
 			var cacheKey string
 			if ecc {
-				cacheKey = name
+				cacheKey = fmt.Sprintf("%s%s", name, ua)
 			} else {
-				cacheKey = name + ",rsa"
+				cacheKey = fmt.Sprintf("%s%s%s", name, ",rsa", ua)
 			}
 
 			var config interface{}
 			var ok bool
-			if config, ok = f.TLSConfigCache.Get(cacheKey); !ok {
+			if config, ok = f.TLSConfigCache.Get(helpers.GetMD5Hash(cacheKey)); !ok {
 				cert, err := f.CA.Issue(name, f.CAExpiry, ecc)
 				if err != nil {
 					return nil, err

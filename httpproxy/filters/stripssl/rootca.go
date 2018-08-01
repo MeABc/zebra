@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/big"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -336,31 +335,6 @@ func (c *RootCA) issueRSA(commonName string, vaildFor time.Duration) error {
 	}
 
 	return nil
-}
-
-func GetCommonName(domain string) string {
-	if ip := net.ParseIP(domain); ip != nil {
-		if ip.To4() == nil {
-			return strings.Replace(ip.String(), ":", "-", -1)
-		}
-		return domain
-	}
-
-	parts := strings.Split(domain, ".")
-	switch len(parts) {
-	case 1, 2:
-		break
-	case 3:
-		len1 := len(parts[len(parts)-1])
-		len2 := len(parts[len(parts)-2])
-		switch {
-		case len1 >= 3 || len2 >= 4:
-			domain = "*." + strings.Join(parts[1:], ".")
-		}
-	default:
-		domain = "*." + strings.Join(parts[1:], ".")
-	}
-	return domain
 }
 
 func (c *RootCA) toFilename(commonName string, ecc bool) string {
