@@ -160,7 +160,7 @@ func (f *Filter) Response(ctx context.Context, resp *http.Response) (context.Con
 	resp.ContentLength = length
 	if length < ignoreFetchRangeSize {
 		resp.Header.Set("Content-Range", fmt.Sprint("bytes=0-"))
-		glog.V(2).Infof("AUTORANGE \"%s\" ContentLength(%d) is less than %d, rangefetch for %#v", resp.Request.URL.String(), length, ignoreFetchRangeSize, resp.Header.Get("Content-Range"))
+		glog.V(3).Infof("AUTORANGE \"%s\" ContentLength(%d) is less than %d, rangefetch for %#v", resp.Request.URL.String(), length, ignoreFetchRangeSize, resp.Header.Get("Content-Range"))
 		return ctx, resp, nil
 	}
 

@@ -22,7 +22,7 @@ func GetLocalNameServers() ([]string, error) {
 		return nil, err
 	}
 	nameservers := make([]string, 0, 4)
-	for _, m := range nsRegex.FindAllStringSubmatch(string(b), -1) {
+	for _, m := range nsRegex.FindAllStringSubmatch(BytesToStr(b), -1) {
 		nameservers = append(nameservers, m[1])
 	}
 	return nameservers, nil

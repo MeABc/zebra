@@ -191,7 +191,7 @@ function FindProxyForURL(url, host) {
 		defer resp.Body.Close()
 		if b, err := ioutil.ReadAll(resp.Body); err == nil {
 			if f.GFWListEnabled {
-				b = []byte(strings.Replace(string(b), "function FindProxyForURL(", "function MyFindProxyForURL(", 1))
+				b = helpers.StrToBytes(strings.Replace(helpers.BytesToStr(b), "function FindProxyForURL(", "function MyFindProxyForURL(", 1))
 			}
 			buf.Write(b)
 		}

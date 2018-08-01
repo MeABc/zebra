@@ -72,24 +72,26 @@ func (s *Servers) EncodeRequest(req *http.Request, fetchserver url.URL, deadline
 		return nil, err
 	}
 
-	options := ""
+	var options strings.Builder
 	if deadline > 0 {
-		options = fmt.Sprintf("deadline=%d", deadline/time.Second)
+		options.WriteString(fmt.Sprintf("deadline=%d", deadline/time.Second))
 	}
 	if brotli {
-		options += ",brotli"
+		options.WriteString(",brotli")
 	}
 	if s.password != "" {
-		options += ",password=" + s.password
+		options.WriteString(",password=")
+		options.WriteString(s.password)
 	}
 	if s.sslVerify {
-		options += ",sslverify"
+		options.WriteString(",sslverify")
 	}
 
 	fmt.Fprintf(w, "%s %s HTTP/1.1\r\n", req.Method, req.URL.String())
-	fmt.Fprintf(w, "X-Urlfetch-Options: %s\r\n", options)
+	fmt.Fprintf(w, "X-Urlfetch-Options: %s\r\n", options.String())
 	req.Header.WriteSubset(w, helpers.ReqWriteExcludeHeader)
 	w.Close()
+	options.Reset()
 
 	b0 := make([]byte, 2)
 	binary.BigEndian.PutUint16(b0, uint16(b.Len()))

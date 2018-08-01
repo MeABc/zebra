@@ -211,7 +211,7 @@ func (c *RootCA) issueECC(commonName string, vaildFor time.Duration) error {
 	certFile := c.toFilename(commonName, true)
 
 	csrTemplate := &x509.CertificateRequest{
-		Signature: []byte(commonName),
+		Signature: helpers.StrToBytes(commonName),
 		Subject: pkix.Name{
 			Country:            []string{"CN"},
 			Organization:       []string{commonName},
@@ -279,7 +279,7 @@ func (c *RootCA) issueRSA(commonName string, vaildFor time.Duration) error {
 	certFile := c.toFilename(commonName, false)
 
 	csrTemplate := &x509.CertificateRequest{
-		Signature: []byte(commonName),
+		Signature: helpers.StrToBytes(commonName),
 		Subject: pkix.Name{
 			Country:            []string{"CN"},
 			Organization:       []string{commonName},

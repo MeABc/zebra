@@ -120,8 +120,8 @@ func (f *Filter) RoundTrip(ctx context.Context, req *http.Request) (context.Cont
 	resp, err := server.RoundTrip(req)
 	if err != nil {
 		return ctx, nil, err
-	} else {
-		glog.V(2).Infof("%s \"VPS %s %s %s\" %d %s", req.RemoteAddr, req.Method, req.URL.String(), req.Proto, resp.StatusCode, resp.Header.Get("Content-Length"))
 	}
+
+	glog.V(2).Infof("%s \"VPS %s %s %s\" %d %s", req.RemoteAddr, req.Method, req.URL.String(), req.Proto, resp.StatusCode, resp.Header.Get("Content-Length"))
 	return ctx, resp, err
 }

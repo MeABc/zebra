@@ -8,6 +8,8 @@ import (
 	"io/ioutil"
 	"path"
 	"strings"
+
+	"../helpers"
 )
 
 func readJsonConfig(store Store, filename string, config interface{}) error {
@@ -33,7 +35,7 @@ func readJsonConfig(store Store, filename string, config interface{}) error {
 				return err
 			}
 
-			data = bytes.TrimPrefix(data, []byte("\xef\xbb\xbf"))
+			data = bytes.TrimPrefix(data, helpers.StrToBytes("\xef\xbb\xbf"))
 
 			cm1 := make(map[string]interface{})
 

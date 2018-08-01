@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
+	"unsafe"
 )
 
 var (
@@ -24,6 +25,17 @@ var (
 
 var bufPool = sync.Pool{
 	New: func() interface{} { return new(bytes.Buffer) },
+}
+
+func StrToBytes(s string) []byte {
+	x := (*[2]uintptr)(unsafe.Pointer(&s))
+	h := [3]uintptr{x[0], x[1], x[1]}
+	return *(*[]byte)(unsafe.Pointer(&h))
+}
+
+// https://segmentfault.com/a/1190000005006351
+func BytesToStr(b []byte) string {
+	return *(*string)(unsafe.Pointer(&b))
 }
 
 func HTTP1(network, addr string, auth *Auth, forward Dialer, resolver Resolver) (Dialer, error) {
@@ -122,7 +134,7 @@ func (h *http1) Dial(network, addr string) (net.Conn, error) {
 
 	fmt.Fprintf(b, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\n", host, portStr, host, portStr)
 	if h.user != "" {
-		fmt.Fprintf(b, "Proxy-Authorization: Basic %s\r\n", base64.StdEncoding.EncodeToString([]byte(h.user+":"+h.password)))
+		fmt.Fprintf(b, "Proxy-Authorization: Basic %s\r\n", base64.StdEncoding.EncodeToString(StrToBytes(h.user+":"+h.password)))
 	}
 	io.WriteString(b, "\r\n")
 

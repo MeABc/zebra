@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/url"
 
+	"../../helpers"
+
 	"github.com/MeABc/net/http2"
 )
 
@@ -38,7 +40,7 @@ func (f *Server) RoundTrip(req *http.Request) (resp *http.Response, err error) {
 		}
 	}
 
-	req.Header.Set("Proxy-Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(f.Username+":"+f.Password)))
+	req.Header.Set("Proxy-Authorization", "Basic "+base64.StdEncoding.EncodeToString(helpers.StrToBytes(f.Username+":"+f.Password)))
 
 	resp, err = f.Transport.RoundTrip(req)
 	if err != nil {

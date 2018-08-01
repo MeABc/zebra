@@ -116,21 +116,24 @@ func GetCommonName(domain string) string {
 		return domain
 	}
 
+	var sb strings.Builder
 	parts := strings.Split(domain, ".")
 	switch len(parts) {
 	case 1, 2:
-		break
+		sb.WriteString(domain)
 	case 3:
 		len1 := len(parts[len(parts)-1])
 		len2 := len(parts[len(parts)-2])
 		switch {
 		case len1 >= 3 || len2 >= 4:
-			domain = "*." + strings.Join(parts[1:], ".")
+			sb.WriteString("*.")
+			sb.WriteString(strings.Join(parts[1:], "."))
 		}
 	default:
-		domain = "*." + strings.Join(parts[1:], ".")
+		sb.WriteString("*.")
+		sb.WriteString(strings.Join(parts[1:], "."))
 	}
-	return domain
+	return sb.String()
 }
 
 func IsStaticRequest(req *http.Request) bool {

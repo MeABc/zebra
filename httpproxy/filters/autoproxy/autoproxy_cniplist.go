@@ -153,8 +153,8 @@ func (f *Filter) legallyParseIPNetList(filename string) ([]*net.IPNet, error) {
 		return nil, fmt.Errorf("ioutil.ReadAll(%#v) error: %v", resp.Body, err)
 	}
 
-	for _, v := range bytes.Split(data, []byte("\n")) {
-		_, ipn, err := net.ParseCIDR(string(v))
+	for _, v := range bytes.Split(data, helpers.StrToBytes("\n")) {
+		_, ipn, err := net.ParseCIDR(helpers.BytesToStr(v))
 		if err != nil {
 			return nil, fmt.Errorf("legallyParseIPNetList error: %v", err)
 		}

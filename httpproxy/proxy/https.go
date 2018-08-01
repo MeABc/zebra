@@ -122,7 +122,7 @@ func (h *https) Dial(network, addr string) (net.Conn, error) {
 
 	fmt.Fprintf(b, "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\n", host, portStr, host, portStr)
 	if h.user != "" {
-		fmt.Fprintf(b, "Proxy-Authorization: Basic %s\r\n", base64.StdEncoding.EncodeToString([]byte(h.user+":"+h.password)))
+		fmt.Fprintf(b, "Proxy-Authorization: Basic %s\r\n", base64.StdEncoding.EncodeToString(StrToBytes(h.user+":"+h.password)))
 	}
 	io.WriteString(b, "\r\n")
 

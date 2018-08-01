@@ -112,7 +112,7 @@ func (h *h2) Dial(network, addr string) (net.Conn, error) {
 	}
 
 	if h.user != "" && h.password != "" {
-		req.Header.Set("Proxy-Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(h.user+":"+h.password)))
+		req.Header.Set("Proxy-Authorization", "Basic "+base64.StdEncoding.EncodeToString(StrToBytes(h.user+":"+h.password)))
 	}
 
 	resp, err := h.transport.RoundTrip(req)

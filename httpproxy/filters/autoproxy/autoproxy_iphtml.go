@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strings"
 
+	"../../helpers"
 	"../../storage"
 )
 
@@ -80,7 +81,7 @@ func (f *Filter) IPHTMLRoundTrip(ctx context.Context, req *http.Request) (contex
 				return ctx, nil, err
 			}
 
-			content := string(data)
+			content := helpers.BytesToStr(data)
 			if n := strings.Index(content, "HostMap"); n > -1 {
 				tmp := content[n:]
 				tmp = tmp[strings.Index(tmp, "[")+1 : strings.Index(tmp, "]")]

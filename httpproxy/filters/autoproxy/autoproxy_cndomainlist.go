@@ -155,8 +155,8 @@ func (f *Filter) legallyParseDomainList(filename string) ([]string, error) {
 		return nil, fmt.Errorf("ioutil.ReadAll(%#v) error: %v", resp.Body, err)
 	}
 
-	for _, v := range bytes.Split(data, []byte("\n")) {
-		domain = string(v)
+	for _, v := range bytes.Split(data, helpers.StrToBytes("\n")) {
+		domain = helpers.BytesToStr(v)
 		if domain == "" {
 			continue
 		}

@@ -166,11 +166,11 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 			if ip, _, err := net.SplitHostPort(addr); err == nil {
 				var duration time.Duration
 
-				if resp.StatusCode == http.StatusBadGateway && (bytes.Contains(body, []byte("Please try again in 30 seconds.")) || bytes.Contains(body, []byte("This page cannot be loaded using Chrome Data Saver. Try reloading the page."))) {
+				if resp.StatusCode == http.StatusBadGateway && (bytes.Contains(body, helpers.StrToBytes("Please try again in 30 seconds.")) || bytes.Contains(body, helpers.StrToBytes("This page cannot be loaded using Chrome Data Saver. Try reloading the page."))) {
 					duration = 1 * time.Hour
 				} else if resp.StatusCode >= 301 && resp.Header.Get("Location") != "" {
 					duration = 2 * time.Hour
-				} else if resp.StatusCode == http.StatusNotFound && bytes.Contains(body, []byte("<ins>That’s all we know.</ins>")) {
+				} else if resp.StatusCode == http.StatusNotFound && bytes.Contains(body, helpers.StrToBytes("<ins>That’s all we know.</ins>")) {
 					server := resp.Header.Get("Server")
 					if server != "gws" && !strings.HasPrefix(server, "gvs") {
 						if t.MultiDialer.TLSConnDuration.Len() > 10 {
@@ -289,19 +289,19 @@ func (t *GAETransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			}
 			resp1.Body.Close()
 
-			if bytes.Contains(body, []byte("DEADLINE_EXCEEDED")) {
+			if bytes.Contains(body, helpers.StrToBytes("DEADLINE_EXCEEDED")) {
 				//FIXME: deadline += 10 * time.Second
 				glog.Warningf("GAE: %s urlfetch %#v get DEADLINE_EXCEEDED, retry with deadline=%s...", req1.Host, req.URL.String(), deadline)
 				time.Sleep(deadline)
 				continue
 			}
-			if bytes.Contains(body, []byte("ver quota")) {
+			if bytes.Contains(body, helpers.StrToBytes("ver quota")) {
 				glog.Warningf("GAE: %s urlfetch %#v get over quota, retry...", req1.Host, req.URL.String())
 				t.Servers.ToggleBadServer(server)
 				time.Sleep(retryDelay)
 				continue
 			}
-			if bytes.Contains(body, []byte("urlfetch: CLOSED")) {
+			if bytes.Contains(body, helpers.StrToBytes("urlfetch: CLOSED")) {
 				glog.Warningf("GAE: %s urlfetch %#v get urlfetch: CLOSED, retry...", req1.Host, req.URL.String())
 				time.Sleep(retryDelay)
 				continue

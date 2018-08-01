@@ -91,7 +91,7 @@ func (s *socks4) Dial(network, addr string) (net.Conn, error) {
 	buf = append(buf, byte(port>>8), byte(port))
 	if s.is4a {
 		buf = append(buf, 0, 0, 0, 1, 0)
-		buf = append(buf, []byte(host+"\x00")...)
+		buf = append(buf, StrToBytes(host+"\x00")...)
 	} else {
 		ip, err := net.ResolveIPAddr("ip4", host)
 		if err != nil {

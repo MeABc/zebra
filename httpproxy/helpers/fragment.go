@@ -64,7 +64,7 @@ func (p *fragmentPipe) Len() int64 {
 }
 
 func (p *fragmentPipe) WriteString(data string, pos int64) (int, error) {
-	return p.Write([]byte(data), pos)
+	return p.Write(StrToBytes(data), pos)
 }
 
 func (p *fragmentPipe) Write(data []byte, pos int64) (int, error) {

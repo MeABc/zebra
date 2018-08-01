@@ -85,7 +85,7 @@ func (s *Server) decodeResponse(resp *http.Response) (resp1 *http.Response, err 
 	}
 
 	if s.Password != "" && resp.Header.Get("Content-Type") == "image/gif" && resp.Body != nil {
-		resp.Body = helpers.NewXorReadCloser(resp.Body, []byte(s.Password))
+		resp.Body = helpers.NewXorReadCloser(resp.Body, helpers.StrToBytes(s.Password))
 	}
 
 	resp, err = http.ReadResponse(bufio.NewReader(resp.Body), resp.Request)
