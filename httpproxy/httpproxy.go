@@ -6,19 +6,19 @@ import (
 
 	"github.com/MeABc/glog"
 
-	"./filters"
-	"./helpers"
+	"../common/filters"
+	"../common/helpers"
 
-	_ "./filters/auth"
-	_ "./filters/autoproxy"
-	_ "./filters/autorange"
-	_ "./filters/direct"
-	_ "./filters/gae"
-	_ "./filters/php"
-	_ "./filters/rewrite"
-	_ "./filters/ssh2"
-	_ "./filters/stripssl"
-	_ "./filters/vps"
+	_ "../common/filters/auth"
+	_ "../common/filters/autoproxy"
+	_ "../common/filters/autorange"
+	_ "../common/filters/direct"
+	_ "../common/filters/gae"
+	_ "../common/filters/php"
+	_ "../common/filters/rewrite"
+	_ "../common/filters/ssh2"
+	_ "../common/filters/stripssl"
+	_ "../common/filters/vps"
 )
 
 type Config struct {

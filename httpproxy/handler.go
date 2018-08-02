@@ -14,8 +14,8 @@ import (
 
 	"github.com/MeABc/glog"
 
-	"./filters"
-	"./helpers"
+	"../common/filters"
+	"../common/helpers"
 )
 
 type Handler struct {
