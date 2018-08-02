@@ -9,8 +9,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/MeABc/glog"
 	"github.com/naoina/toml"
-	"github.com/phuslu/glog"
 )
 
 type Config struct {

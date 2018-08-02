@@ -12,8 +12,9 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/phuslu/glog"
-	"github.com/phuslu/goproxy/httpproxy/helpers"
+	"../../common/helpers"
+
+	"github.com/MeABc/glog"
 )
 
 type HTTP2Handler struct {

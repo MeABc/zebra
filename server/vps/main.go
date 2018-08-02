@@ -12,12 +12,13 @@ import (
 	"os/exec"
 	"time"
 
+	"../../common/helpers"
+	"../../common/proxy"
+
+	"github.com/MeABc/glog"
+	"github.com/MeABc/net/http2"
+	"github.com/MeABc/quic-go/h2quic"
 	"github.com/cloudflare/golibs/lrucache"
-	"github.com/phuslu/glog"
-	"github.com/phuslu/goproxy/httpproxy/helpers"
-	"github.com/phuslu/goproxy/httpproxy/proxy"
-	"github.com/phuslu/net/http2"
-	"github.com/phuslu/quic-go/h2quic"
 )
 
 var (

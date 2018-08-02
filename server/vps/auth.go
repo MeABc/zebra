@@ -11,8 +11,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/MeABc/glog"
 	"github.com/cloudflare/golibs/lrucache"
-	"github.com/phuslu/glog"
 )
 
 type SimpleAuth struct {
