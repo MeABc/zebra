@@ -13,3 +13,8 @@ zebra-logo.png
 proxy.pac
 zebra.crt
 zebra.key
+app.yaml
+.appcfg_oauth2_tokens
+google_appengine
+*.user.toml
+*.pem
