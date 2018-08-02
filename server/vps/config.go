@@ -19,12 +19,12 @@ type Config struct {
 		DaemonStderr        string
 		RejectNilSni        bool
 		PreferIpv4          bool
-		DnsTtl              int
+		DNSTTL              int
 		IdleConnTimeout     int
 		MaxIdleConnsPerHost int
 	}
 	HTTP2 []struct {
-		DisableHttp2     bool
+		DisableHTTP2     bool
 		DisableLegacySsl bool
 
 		Network string
@@ -118,7 +118,7 @@ func NewConfig(filename string) (*Config, error) {
 
 	var config Config
 	if err = toml.Unmarshal(tomlData, &config); err != nil {
-		return nil, fmt.Errorf("toml.Decode(%s) error: %+v\n", tomlData, err)
+		return nil, fmt.Errorf("toml.Decode(%s) error: %+v", tomlData, err)
 	}
 
 	return &config, nil

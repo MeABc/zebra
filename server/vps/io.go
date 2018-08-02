@@ -43,13 +43,12 @@ type ConnWithData struct {
 func (c *ConnWithData) Read(b []byte) (int, error) {
 	if c.Data == nil {
 		return c.Conn.Read(b)
-	} else {
-		n := copy(b, c.Data)
-		if n < len(c.Data) {
-			c.Data = c.Data[n:]
-		} else {
-			c.Data = nil
-		}
-		return n, nil
 	}
+	n := copy(b, c.Data)
+	if n < len(c.Data) {
+		c.Data = c.Data[n:]
+	} else {
+		c.Data = nil
+	}
+	return n, nil
 }

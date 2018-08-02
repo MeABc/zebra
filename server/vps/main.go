@@ -55,7 +55,7 @@ func main() {
 		Resolver: &helpers.Resolver{
 			LRUCache:  lrucache.NewLRUCache(8 * 1024),
 			BlackList: lrucache.NewLRUCache(1024),
-			DNSExpiry: time.Duration(config.Default.DnsTtl) * time.Second,
+			DNSExpiry: time.Duration(config.Default.DNSTTL) * time.Second,
 		},
 	}
 
@@ -149,7 +149,7 @@ func main() {
 		}
 
 		for i, servername := range server.ServerName {
-			cm.Add(servername, server.Certfile, server.Keyfile, server.PEM, server.ClientAuthFile, server.ClientAuthPem, !server.DisableHttp2, server.DisableLegacySsl)
+			cm.Add(servername, server.Certfile, server.Keyfile, server.PEM, server.ClientAuthFile, server.ClientAuthPem, !server.DisableHTTP2, server.DisableLegacySsl)
 			h.ServerNames = append(h.ServerNames, servername)
 			h.Handlers[servername] = handler
 			if i == 0 || servername == "*" {
