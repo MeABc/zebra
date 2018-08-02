@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"compress/flate"
 	"compress/gzip"
+	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -219,6 +220,7 @@ func handler(rw http.ResponseWriter, r *http.Request) {
 			deadline = time.Duration(n) * time.Second
 		}
 	}
+	ctxWithDeadline, _ := context.WithTimeout(c, deadline)
 
 	fetchMaxSize := DefaultFetchMaxSize
 	if s, ok := params["maxsize"]; ok && s != "" {
@@ -229,14 +231,13 @@ func handler(rw http.ResponseWriter, r *http.Request) {
 
 	_, sslVerify := params["sslverify"]
 
+	t := &urlfetch.Transport{
+		Context: ctxWithDeadline,
+		AllowInvalidServerCertificate: !sslVerify,
+	}
+
 	var resp *http.Response
 	for i := 0; i < 2; i++ {
-		t := &urlfetch.Transport{
-			Context:                       c,
-			Deadline:                      deadline,
-			AllowInvalidServerCertificate: !sslVerify,
-		}
-
 		resp, err = t.RoundTrip(req)
 		if resp != nil && resp.Body != nil {
 			if v := reflect.ValueOf(resp.Body).Elem().FieldByName("truncated"); v.IsValid() {
