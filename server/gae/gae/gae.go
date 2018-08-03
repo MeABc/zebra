@@ -386,6 +386,10 @@ func robots(rw http.ResponseWriter, r *http.Request) {
 }
 
 func root(rw http.ResponseWriter, r *http.Request) {
+	io.WriteString(rw, "")
+}
+
+func showVersion(rw http.ResponseWriter, r *http.Request) {
 	c := appengine.NewContext(r)
 
 	version, _ := strconv.ParseInt(strings.Split(appengine.VersionID(c), ".")[1], 10, 64)
@@ -431,4 +435,5 @@ func init() {
 	http.HandleFunc("/favicon.ico", favicon)
 	http.HandleFunc("/robots.txt", robots)
 	http.HandleFunc("/", root)
+	// http.HandleFunc("/sv", showVersion)
 }
