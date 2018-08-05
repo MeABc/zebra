@@ -1,0 +1,50 @@
+
+goapp env set(optional):
+(Windows system)
+set PATH=X:\Python27;%PATH%
+set http_proxy=http://127.0.0.1:1080/
+set https_proxy=http://127.0.0.1:1080/
+
+Step:
+1. Download and install the Python version 2.7
+(https://www.python.org/downloads/)
+
+2. Make sure Python 2.7 is installed on your machine using the following command:
+
+Linux:
+/usr/bin/env python -V
+
+Windows:
+python -V
+
+3. Download and install the App Engine SDK for Go
+(https://cloud.google.com/appengine/docs/standard/go/download)
+
+4. Decompress
+unzip go_appengine_sdk_OS_BIT-VERSION.zip
+
+5. 
+cp -rf go_appengine_sdk_OS_BIT-VERSION/go_appengine gae/
+
+6.
+./uploader_goapp.py
+or
+python uploader_goapp.py
+
+
+gae(root)
+    |---gae (project)
+    |
+    |---go_appengine (Google App Engine SDK)
+    |   |---antlr3
+    |   |---fancy_urllib
+    |   |---httplib2
+    |   |---ipaddr
+    |   |---oauth2client
+    |   |---six
+    |   |---webob
+    |   |---yaml
+    |
+    |---PySocks
+    |
+    |---uploader_goapp.py
