@@ -61,18 +61,18 @@ OBJECTS=${OBJECTDIR}/${ZEBRA_EXE}
 
 SOURCES="${REPO}/README.md \
         ${REPO}/assets/packaging/gae.user.json.example \
-        ${REPO}/httpproxy/filters/auth/auth.json \
-        ${REPO}/httpproxy/filters/autoproxy/china_domain_list.txt \
-        ${REPO}/httpproxy/filters/autoproxy/china_ip_list.txt \
-        ${REPO}/httpproxy/filters/autoproxy/autoproxy.json \
-        ${REPO}/httpproxy/filters/autoproxy/gfwlist.txt \
-        ${REPO}/httpproxy/filters/autoproxy/ip.html \
-        ${REPO}/httpproxy/filters/autorange/autorange.json \
-        ${REPO}/httpproxy/filters/direct/direct.json \
-        ${REPO}/httpproxy/filters/gae/gae.json \
-        ${REPO}/httpproxy/filters/php/php.json \
-        ${REPO}/httpproxy/filters/rewrite/rewrite.json \
-        ${REPO}/httpproxy/filters/stripssl/stripssl.json \
+        ${REPO}/common/filters/auth/auth.json \
+        ${REPO}/common/filters/autoproxy/china_domain_list.txt \
+        ${REPO}/common/filters/autoproxy/china_ip_list.txt \
+        ${REPO}/common/filters/autoproxy/autoproxy.json \
+        ${REPO}/common/filters/autoproxy/gfwlist.txt \
+        ${REPO}/common/filters/autoproxy/ip.html \
+        ${REPO}/common/filters/autorange/autorange.json \
+        ${REPO}/common/filters/direct/direct.json \
+        ${REPO}/common/filters/gae/gae.json \
+        ${REPO}/common/filters/php/php.json \
+        ${REPO}/common/filters/rewrite/rewrite.json \
+        ${REPO}/common/filters/stripssl/stripssl.json \
         ${REPO}/httpproxy/httpproxy.json"
 
 if [ "${GOOS}" = "windows" ]; then

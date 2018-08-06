@@ -245,7 +245,7 @@ func handler(rw http.ResponseWriter, r *http.Request) {
 	_, sslVerify := params["sslverify"]
 
 	t := &urlfetch.Transport{
-		Context: ctxWithDeadline,
+		Context:                       ctxWithDeadline,
 		AllowInvalidServerCertificate: !sslVerify,
 	}
 

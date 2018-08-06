@@ -23,7 +23,7 @@ fi
 # 	echo "WARNING: \$SOURCEFORGE_PASSWORD is not set!"
 # fi
 
-for CMD in curl awk git tar bzip2 xz 7za gcc make sha1sum timeout; do
+for CMD in curl awk git tar bzip2 xz 7za gcc make sha1sum timeout diff; do
   if ! type -p ${CMD}; then
     echo -e "\\e[1;31mtool ${CMD} is not installed, abort.\\e[0m"
     exit 1
@@ -170,12 +170,13 @@ function build_repo() {
 
   if [ "$(gofmt -l . | tee /dev/tty)" != "" ]; then
     echo -e "\\e[1;31mPlease run 'gofmt -s -w .' for go source files\\e[0m"
+    diff -u <(echo -n) <(gofmt -d ./)
     exit 1
   fi
 
   awk 'match($1, /"((github\.com|golang\.org|gopkg\.in)\/.+)"/) {if (!seen[$1]++) {gsub("\"", "", $1); print $1}}' $(find . -name "*.go") | xargs -n1 -i go get -u -v {}
 
-  go test -v ./httpproxy/helpers
+  go test -v ./common/helpers
 
   # if curl -m 3 https://pki.google.com >/dev/null ; then
   # 	GoogleG2PKP=$(curl -s https://pki.google.com/GIAG2.crt | openssl x509 -inform der -pubkey | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | openssl base64)
