@@ -145,8 +145,8 @@ func NewFilter(config *Config) (filters.Filter, error) {
 	googleQUICConfig := &quic.Config{
 		HandshakeTimeout:            time.Duration(config.Transport.Dialer.Timeout) * time.Second,
 		IdleTimeout:                 time.Duration(config.Transport.IdleConnTimeout) * time.Second,
-		RequestConnectionIDOmission: true,
-		KeepAlive:                   true,
+		RequestConnectionIDOmission: false,
+		KeepAlive:                   false,
 	}
 
 	directServerName := "fonts.googleapis.com"

@@ -2,7 +2,6 @@ package gae
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -22,13 +21,6 @@ type Transport struct {
 	MultiDialer  *helpers.MultiDialer
 	RetryTimes   int
 }
-
-// https://github.com/golang/lint/blob/master/testdata/contextkeytypes.go
-type responseHeaderTimeoutKey struct{}
-
-const (
-	DefaultResponseContextTimeout time.Duration = 8 * time.Second
-)
 
 type QuicBody struct {
 	quic.Stream
@@ -63,10 +55,6 @@ func (b *QuicBody) OnError(err error) {
 func (t *Transport) roundTripQuic(req *http.Request) (*http.Response, error) {
 	t1 := t.RoundTripper.(*h2quic.RoundTripper)
 
-	if !strings.HasSuffix(req.Host, ".appspot.com") {
-		req = req.WithContext(context.WithValue(req.Context(), responseHeaderTimeoutKey{}, DefaultResponseContextTimeout))
-	}
-
 	resp, err := t1.RoundTrip(req)
 
 	if ne, ok := err.(*net.OpError); ok && ne != nil {
@@ -89,8 +77,6 @@ func (t *Transport) roundTripQuic(req *http.Request) (*http.Response, error) {
 }
 
 func (t *Transport) roundTripTLS(req *http.Request) (*http.Response, error) {
-	req = req.WithContext(context.WithValue(req.Context(), responseHeaderTimeoutKey{}, DefaultResponseContextTimeout))
-
 	resp, err := t.RoundTripper.RoundTrip(req)
 
 	if ne, ok := err.(*net.OpError); ok && ne != nil && ne.Addr != nil {
