@@ -1,0 +1,28 @@
+{
+    "Default": {
+        "Enabled": false,
+        "Address": "127.0.0.1:1087",
+        "KeepAlivePeriod": 0,
+        "ReadTimeout": 600,
+        "WriteTimeout": 3600,
+        "RequestFilters": [
+            // "auth",
+            // "rewrite",
+            "autoproxy",
+            // "stripssl",
+            "autorange",
+        ],
+        "RoundTripFilters": [
+            "autoproxy",
+            // "auth",
+            // "vps",
+            // "php",
+            "gae",
+            "direct",
+        ],
+        "ResponseFilters": [
+            "autorange",
+            // "rewrite",
+        ]
+    }
+}
