@@ -103,7 +103,7 @@ import httplib2
 
 
 def _ssl_wrap_socket(sock, key_file, cert_file,
-                     disable_validation, ca_certs):
+                     disable_validation, ca_certs, ssl_version, hostname):
     cert_reqs = ssl.CERT_NONE
     return ssl.wrap_socket(sock, keyfile=key_file, certfile=cert_file,
                            cert_reqs=ssl.CERT_NONE, ca_certs=None,
