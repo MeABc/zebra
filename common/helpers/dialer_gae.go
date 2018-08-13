@@ -19,7 +19,7 @@ import (
 type MultiDialer struct {
 	KeepAlive         time.Duration
 	Timeout           time.Duration
-	Deadline          time.Duration
+	UDPConn           *net.UDPConn
 	DualStack         bool
 	Resolver          *Resolver
 	SSLVerify         bool
@@ -343,6 +343,12 @@ func (d *MultiDialer) dialMultiQuic(hosts []string, port string, tlsConfig *tls.
 		go func(host string, c chan<- sessWithError) {
 			addr := net.JoinHostPort(host, port)
 
+			udpAddr, err := net.ResolveUDPAddr("udp", addr)
+			if err != nil {
+				lane <- sessWithError{nil, err}
+				return
+			}
+
 			if tlsConfig == nil {
 				tlsConfig = &tls.Config{
 					InsecureSkipVerify: !d.SSLVerify,
@@ -363,7 +369,7 @@ func (d *MultiDialer) dialMultiQuic(hosts []string, port string, tlsConfig *tls.
 			defer cancel()
 
 			start := time.Now()
-			sess, err := quic.DialAddrContext(ctx, addr, tlsConfig, config)
+			sess, err := quic.DialContext(ctx, d.UDPConn, udpAddr, addr, tlsConfig, config)
 			if err != nil {
 				d.TLSConnDuration.Del(host)
 				d.TLSConnError.Set(host, err, time.Now().Add(d.ErrorConnExpiry))

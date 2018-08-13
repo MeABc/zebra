@@ -170,3 +170,22 @@ func (l *listener) Add(conn net.Conn) error {
 
 	return nil
 }
+
+func ListenUDP() (*net.UDPConn, error) {
+	udpAddr := &net.UDPAddr{
+		IP:   net.IPv4zero,
+		Port: 0,
+	}
+
+	udpConn, err := net.ListenUDP("udp", udpAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	err = udpConn.SetReadBuffer(defaultListenerReadBufferSize)
+	if err != nil {
+		return nil, err
+	}
+
+	return udpConn, nil
+}

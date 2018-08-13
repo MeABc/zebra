@@ -38,17 +38,19 @@ func (b *QuicBody) OnError(err error) {
 	}
 
 	if shouldClose {
-		b.Transport.Close()
 		ip, _, _ := net.SplitHostPort(b.RemoteAddr().String())
+		helpers.CloseConnectionByRemoteHost(b.Transport, ip)
 		duration := 5 * time.Minute
 		glog.Warningf("GAE: QuicBody(%v) is timeout, add to blacklist for %v", ip, duration)
 		b.MultiDialer.IPBlackList.Set(ip, struct{}{}, time.Now().Add(duration))
+		return
 	}
 
 	if e, ok := err.(interface {
 		Error() string
 	}); ok && e.Error() == "PeerGoingAway: " {
-		b.Transport.Close()
+		ip, _, _ := net.SplitHostPort(b.RemoteAddr().String())
+		helpers.CloseConnectionByRemoteHost(b.Transport, ip)
 	}
 }
 
@@ -56,13 +58,6 @@ func (t *Transport) roundTripQuic(req *http.Request) (*http.Response, error) {
 	t1 := t.RoundTripper.(*h2quic.RoundTripper)
 
 	resp, err := t1.RoundTrip(req)
-
-	if ne, ok := err.(*net.OpError); ok && ne != nil {
-		if ne.Error() == "PeerGoingAway: " || ne.Error() == "context deadline exceeded" || ne.Error() == "context canceled" {
-			t1.Close()
-		}
-	}
-
 	if resp != nil && resp.Body != nil {
 		if stream, ok := resp.Body.(quic.Stream); ok {
 			resp.Body = &QuicBody{

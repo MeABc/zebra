@@ -271,7 +271,6 @@ func NewFilter(config *Config) (filters.Filter, error) {
 	md := &helpers.MultiDialer{
 		KeepAlive:         time.Duration(config.Transport.Dialer.KeepAlive) * time.Second,
 		Timeout:           time.Duration(config.Transport.Dialer.Timeout) * time.Second,
-		Deadline:          time.Duration(config.Transport.IdleConnTimeout) * time.Second,
 		DualStack:         config.Transport.Dialer.DualStack,
 		Resolver:          r,
 		SSLVerify:         config.SSLVerify,
@@ -359,6 +358,11 @@ func NewFilter(config *Config) (filters.Filter, error) {
 			QuicConfig:         md.GoogleQUICConfig,
 			Dial:               md.DialQuic,
 			GetClientKey:       GetHostnameCacheKey,
+		}
+
+		md.UDPConn, err = helpers.ListenUDP()
+		if err != nil {
+			glog.Fatalf("GAE: listenUDP is failed:%v", err)
 		}
 	} else if config.DisableHTTP2 && config.ForceHTTP2 {
 		glog.Fatalf("GAE: DisableHTTP2=%v and ForceHTTP2=%v is conflict!", config.DisableHTTP2, config.ForceHTTP2)
