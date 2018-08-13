@@ -200,6 +200,9 @@ func handler(rw http.ResponseWriter, r *http.Request) {
 			}
 		}
 		req.Header.Del("X-UrlFetch-Options")
+	} else {
+		io.WriteString(rw, "")
+		return
 	}
 
 	oAE := req.Header.Get("Accept-Encoding")
