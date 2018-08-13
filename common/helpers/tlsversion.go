@@ -83,5 +83,5 @@ func TLSMaxVersion(Versions []uint16) uint16 {
 		return tls.VersionTLS10
 	}
 
-	return tls.VersionTLS12
+	return tls.VersionTLS10
 }
