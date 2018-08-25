@@ -152,7 +152,8 @@ func (r *Resolver) lookupIP1(name string) ([]net.IP, error) {
 
 func (r *Resolver) lookupIP2(name string) ([]net.IP, error) {
 	c := &dns.Client{
-		Timeout: DefaultDNSDialTimeout,
+		Timeout:        DefaultDNSDialTimeout,
+		SingleInflight: true,
 	}
 	switch r.Network {
 	case "udp", "":
