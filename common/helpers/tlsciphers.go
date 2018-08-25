@@ -137,3 +137,49 @@ func HasECCCiphers(cipherSuites []uint16) bool {
 	}
 	return false
 }
+
+func SupportsECDSA(hello *tls.ClientHelloInfo) bool {
+	// The "signature_algorithms" extension, if present, limits the key exchange
+	// algorithms allowed by the cipher suites. See RFC 5246, section 7.4.1.4.1.
+	if hello.SignatureSchemes != nil {
+		ecdsaOK := false
+	schemeLoop:
+		for _, scheme := range hello.SignatureSchemes {
+			const tlsECDSAWithSHA1 tls.SignatureScheme = 0x0203 // constant added in Go 1.10
+			switch scheme {
+			case tlsECDSAWithSHA1, tls.ECDSAWithP256AndSHA256,
+				tls.ECDSAWithP384AndSHA384, tls.ECDSAWithP521AndSHA512:
+				ecdsaOK = true
+				break schemeLoop
+			}
+		}
+		if !ecdsaOK {
+			return false
+		}
+	}
+	if hello.SupportedCurves != nil {
+		ecdsaOK := false
+		for _, curve := range hello.SupportedCurves {
+			if curve == tls.CurveP256 {
+				ecdsaOK = true
+				break
+			}
+		}
+		if !ecdsaOK {
+			return false
+		}
+	}
+	for _, suite := range hello.CipherSuites {
+		switch suite {
+		case tls.TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305:
+			return true
+		}
+	}
+	return false
+}

@@ -171,7 +171,7 @@ func (f *Filter) Request(ctx context.Context, req *http.Request) (context.Contex
 			}
 
 			name := helpers.GetCommonName(host)
-			ecc := helpers.HasECCCiphers(hello.CipherSuites)
+			ecc := helpers.SupportsECDSA(hello)
 
 			var md5hash string
 			var cacheKey strings.Builder
@@ -202,11 +202,12 @@ func (f *Filter) Request(ctx context.Context, req *http.Request) (context.Contex
 					MinVersion:               tls.VersionTLS10,
 					PreferServerCipherSuites: true,
 					Renegotiation:            tls.RenegotiateFreelyAsClient,
-					CurvePreferences: []tls.CurveID{
-						tls.CurveP256,
-						tls.X25519,
-					},
 				}
+
+				if hello.SupportedCurves != nil {
+					config.(*tls.Config).CurvePreferences = hello.SupportedCurves
+				}
+
 				f.TLSConfigCache.Set(md5hash, config, time.Now().Add(24*time.Hour))
 			}
 			return config.(*tls.Config), nil
