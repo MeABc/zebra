@@ -468,7 +468,8 @@ func (d *MultiDialer) pickupTLSHosts(hosts []string, n int) []string {
 		rand.Shuffle(len(bads), func(i int, j int) {
 			bads[i], bads[j] = bads[j], bads[i]
 		})
-		d.ClearCache()
+		// d.ClearCache()
+		// d.TLSConnError.Clear()
 	}
 
 	for _, hosts2 := range [][]string{unknowns, bads} {
