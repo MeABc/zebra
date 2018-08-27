@@ -195,17 +195,11 @@ func (f *Filter) Request(ctx context.Context, req *http.Request) (context.Contex
 				pool := x509.NewCertPool()
 				pool.AddCert(f.CA.ca)
 				config = &tls.Config{
-					CipherSuites:             hello.CipherSuites,
-					Certificates:             []tls.Certificate{*cert},
-					RootCAs:                  pool,
-					MaxVersion:               helpers.TLSMaxVersion(hello.SupportedVersions),
-					MinVersion:               tls.VersionTLS10,
-					PreferServerCipherSuites: true,
-					Renegotiation:            tls.RenegotiateFreelyAsClient,
-				}
-
-				if hello.SupportedCurves != nil {
-					config.(*tls.Config).CurvePreferences = hello.SupportedCurves
+					CipherSuites: hello.CipherSuites,
+					Certificates: []tls.Certificate{*cert},
+					RootCAs:      pool,
+					MaxVersion:   helpers.TLSMaxVersion(hello.SupportedVersions),
+					MinVersion:   tls.VersionTLS10,
 				}
 
 				f.TLSConfigCache.Set(md5hash, config, time.Now().Add(24*time.Hour))
@@ -230,7 +224,6 @@ func (f *Filter) Request(ctx context.Context, req *http.Request) (context.Contex
 			MinVersion:                  tls.VersionTLS10,
 			SessionTicketsDisabled:      false,
 			DynamicRecordSizingDisabled: false,
-			ClientSessionCache:          tls.NewLRUClientSessionCache(1024),
 			PreferServerCipherSuites:    true,
 			CurvePreferences: []tls.CurveID{
 				tls.CurveP256,
@@ -241,12 +234,15 @@ func (f *Filter) Request(ctx context.Context, req *http.Request) (context.Contex
 			CipherSuites: []uint16{
 				tls.TLS_AES_128_GCM_SHA256,
 				tls.TLS_AES_256_GCM_SHA384,
-				tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-				tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
-				tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+				tls.TLS_CHACHA20_POLY1305_SHA256,
 				tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
 				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+				tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
+				tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+				tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+				tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
 				tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
 				tls.TLS_RSA_WITH_AES_128_GCM_SHA256,
 				tls.TLS_RSA_WITH_AES_256_CBC_SHA256,
