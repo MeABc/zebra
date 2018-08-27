@@ -235,6 +235,8 @@ func (f *Filter) Request(ctx context.Context, req *http.Request) (context.Contex
 			CurvePreferences: []tls.CurveID{
 				tls.CurveP256,
 				tls.X25519,
+				tls.CurveP384,
+				tls.CurveP521,
 			},
 			CipherSuites: []uint16{
 				tls.TLS_AES_128_GCM_SHA256,
