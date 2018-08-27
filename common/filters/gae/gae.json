@@ -75,7 +75,7 @@
 	"ForceBrotli": [
 	],
 	"TLSConfig": {
-		"Version": "TLSv1.3",
+		"Version": "TLSv1.2",
 		"ClientSessionCacheSize": 1024,
 		"Ciphers": [
 			"TLS_RSA_WITH_AES_256_CBC_SHA256",
