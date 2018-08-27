@@ -296,30 +296,32 @@ func (h *IPinfoHandler) ipinfoSearch(ipStr string) (string, error) {
 		return country, err
 	}
 
-	data, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		helpers.CloseResponseBody(resp)
-		return country, err
-	}
-	resp.Body.Close()
+	if resp != nil && resp.Body != nil {
+		data, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			helpers.CloseResponseBody(resp)
+			return country, err
+		}
+		resp.Body.Close()
 
-	rule, _ := h.URLs[u0]
-	switch rule {
-	case "normal":
-		if gjson.ValidBytes(data) {
-			country = gjson.GetBytes(data, "country").String()
-		}
-	case "taobao":
-		if gjson.ValidBytes(data) {
-			country = gjson.GetBytes(data, "data.country").String()
-		}
-	case "country_name":
-		if gjson.ValidBytes(data) {
-			country = gjson.GetBytes(data, "country_name").String()
-		}
-	case "countryName":
-		if gjson.ValidBytes(data) {
-			country = gjson.GetBytes(data, "countryName").String()
+		rule, _ := h.URLs[u0]
+		switch rule {
+		case "normal":
+			if gjson.ValidBytes(data) {
+				country = gjson.GetBytes(data, "country").String()
+			}
+		case "taobao":
+			if gjson.ValidBytes(data) {
+				country = gjson.GetBytes(data, "data.country").String()
+			}
+		case "country_name":
+			if gjson.ValidBytes(data) {
+				country = gjson.GetBytes(data, "country_name").String()
+			}
+		case "countryName":
+			if gjson.ValidBytes(data) {
+				country = gjson.GetBytes(data, "countryName").String()
+			}
 		}
 	}
 
