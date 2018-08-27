@@ -62,7 +62,10 @@ func (f *Filter) RegionfiltersInit(config *Config) {
 				InsecureSkipVerify: false,
 				ClientSessionCache: tls.NewLRUClientSessionCache(1000),
 			},
-			TLSHandshakeTimeout: 8 * time.Second,
+			TLSHandshakeTimeout:   8 * time.Second,
+			IdleConnTimeout:       30 * time.Second,
+			ResponseHeaderTimeout: 10 * time.Second,
+			MaxIdleConnsPerHost:   32,
 		}
 
 		if config.RegionFilters.Proxy.Enabled {
