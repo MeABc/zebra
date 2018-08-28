@@ -292,14 +292,18 @@ func (h *IPinfoHandler) ipinfoSearch(ipStr string) (string, error) {
 		return h.Transport.RoundTrip(req)
 	})
 
-	resp := v.(*http.Response)
+	var resp *http.Response
+	var ok bool
+	if resp, ok = v.(*http.Response); !ok {
+		return country, err
+	}
 
 	if err != nil {
 		helpers.CloseResponseBody(resp)
 		return country, err
 	}
 
-	if resp != nil && resp.Body != nil {
+	if resp != nil && resp.StatusCode == http.StatusOK {
 		data, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			helpers.CloseResponseBody(resp)
@@ -308,21 +312,15 @@ func (h *IPinfoHandler) ipinfoSearch(ipStr string) (string, error) {
 		resp.Body.Close()
 
 		rule, _ := h.URLs[u0]
-		switch rule {
-		case "normal":
-			if gjson.ValidBytes(data) {
+		if gjson.ValidBytes(data) {
+			switch rule {
+			case "normal":
 				country = gjson.GetBytes(data, "country").String()
-			}
-		case "taobao":
-			if gjson.ValidBytes(data) {
+			case "taobao":
 				country = gjson.GetBytes(data, "data.country").String()
-			}
-		case "country_name":
-			if gjson.ValidBytes(data) {
+			case "country_name":
 				country = gjson.GetBytes(data, "country_name").String()
-			}
-		case "countryName":
-			if gjson.ValidBytes(data) {
+			case "countryName":
 				country = gjson.GetBytes(data, "countryName").String()
 			}
 		}
