@@ -162,21 +162,26 @@ func (f *Filter) Request(ctx context.Context, req *http.Request) (context.Contex
 
 	var c net.Conn = conn
 	if needStripSSL {
+		pool := x509.NewCertPool()
+		pool.AddCert(f.CA.ca)
+
 		GetConfigForClient := func(hello *tls.ClientHelloInfo) (*tls.Config, error) {
-			host := req.Host
-			ua := req.UserAgent()
+			var md5hash, host, name, ua string
+			var cacheKey strings.Builder
+
+			host = req.Host
+			ua = req.UserAgent()
+			if ua != "" {
+				cacheKey.WriteString(ua)
+			}
 
 			if h, _, err := net.SplitHostPort(host); err == nil {
 				host = h
 			}
-
-			name := helpers.GetCommonName(host)
-			ecc := helpers.SupportsECDSA(hello)
-
-			var md5hash string
-			var cacheKey strings.Builder
+			name = helpers.GetCommonName(host)
 			cacheKey.WriteString(name)
-			cacheKey.WriteString(ua)
+
+			ecc := helpers.SupportsECDSA(hello)
 			if ecc {
 				cacheKey.WriteString("ecc")
 			} else {
@@ -192,23 +197,18 @@ func (f *Filter) Request(ctx context.Context, req *http.Request) (context.Contex
 				if err != nil {
 					return nil, err
 				}
-				pool := x509.NewCertPool()
-				pool.AddCert(f.CA.ca)
 				config = &tls.Config{
 					CipherSuites: hello.CipherSuites,
 					Certificates: []tls.Certificate{*cert},
 					RootCAs:      pool,
 					MaxVersion:   helpers.TLSMaxVersion(hello.SupportedVersions),
-					MinVersion:   tls.VersionTLS10,
+					MinVersion:   helpers.TLSMinVersion(hello.SupportedVersions),
 				}
 
-				f.TLSConfigCache.Set(md5hash, config, time.Now().Add(24*time.Hour))
+				f.TLSConfigCache.Set(md5hash, config, time.Now().Add(7*24*time.Hour))
 			}
 			return config.(*tls.Config), nil
 		}
-
-		pool := x509.NewCertPool()
-		pool.AddCert(f.CA.ca)
 
 		cert := tls.Certificate{
 			Certificate: [][]byte{f.CA.derBytes},
