@@ -143,6 +143,11 @@ func NewFilter(config *Config) (filters.Filter, error) {
 	}
 
 	googleQUICConfig := &quic.Config{
+		Versions: []quic.VersionNumber{
+			0x51303030 + 3*0x100 + 0x9, // Version39
+			0x51303030 + 4*0x100 + 0x3, // Version43
+			101,                        // VersionTLS
+		},
 		HandshakeTimeout:            time.Duration(config.Transport.Dialer.Timeout) * time.Second,
 		IdleTimeout:                 time.Duration(config.Transport.IdleConnTimeout) * time.Second,
 		RequestConnectionIDOmission: false,
