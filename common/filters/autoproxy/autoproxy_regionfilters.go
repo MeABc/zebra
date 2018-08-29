@@ -59,6 +59,7 @@ func (f *Filter) RegionfiltersInit(config *Config) {
 		tr := &http.Transport{
 			Dial: d.Dial,
 			TLSClientConfig: &tls.Config{
+				MinVersion:         tls.VersionTLS12,
 				InsecureSkipVerify: false,
 				ClientSessionCache: tls.NewLRUClientSessionCache(1000),
 			},

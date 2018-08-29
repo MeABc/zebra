@@ -12,6 +12,7 @@
 			"URL": "socks5://127.0.0.1:1080",
 		},
 		"TLSClientConfig": {
+			"MinVersion": "TLSv1.2",
 			"InsecureSkipVerify": false,
 			"ClientSessionCacheSize": 1000
 		},

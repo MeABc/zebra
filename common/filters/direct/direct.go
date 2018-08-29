@@ -38,6 +38,7 @@ type Config struct {
 			URL     string
 		}
 		TLSClientConfig struct {
+			MinVersion             string
 			InsecureSkipVerify     bool
 			ClientSessionCacheSize int
 		}
@@ -113,12 +114,18 @@ func NewFilter(config *Config) (filters.Filter, error) {
 	tr := &http.Transport{
 		Dial: d.Dial,
 		TLSClientConfig: &tls.Config{
+			MinVersion:         tls.VersionTLS12,
 			InsecureSkipVerify: config.Transport.TLSClientConfig.InsecureSkipVerify,
 			ClientSessionCache: tls.NewLRUClientSessionCache(config.Transport.TLSClientConfig.ClientSessionCacheSize),
 		},
 		TLSHandshakeTimeout: time.Duration(config.Transport.TLSHandshakeTimeout) * time.Second,
 		MaxIdleConnsPerHost: config.Transport.MaxIdleConnsPerHost,
 		DisableCompression:  config.Transport.DisableCompression,
+	}
+	if v := helpers.TLSVersion(config.Transport.TLSClientConfig.MinVersion); v != 0 {
+		tr.TLSClientConfig.MinVersion = v
+	} else {
+		tr.TLSClientConfig.MinVersion = tls.VersionTLS12
 	}
 
 	if config.Transport.Proxy.Enabled {

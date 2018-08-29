@@ -67,6 +67,7 @@ func (f *Filter) CNDomainListInit(config *Config) {
 		f.CNDomainList.Transport = &http.Transport{
 			Dial: d.Dial,
 			TLSClientConfig: &tls.Config{
+				MinVersion:         tls.VersionTLS12,
 				InsecureSkipVerify: false,
 				ClientSessionCache: tls.NewLRUClientSessionCache(1000),
 			},

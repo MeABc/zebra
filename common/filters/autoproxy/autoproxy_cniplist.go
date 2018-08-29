@@ -65,6 +65,7 @@ func (f *Filter) CNIPListInit(config *Config) {
 		f.CNIPList.Transport = &http.Transport{
 			Dial: d.Dial,
 			TLSClientConfig: &tls.Config{
+				MinVersion:         tls.VersionTLS12,
 				InsecureSkipVerify: false,
 				ClientSessionCache: tls.NewLRUClientSessionCache(1000),
 			},
